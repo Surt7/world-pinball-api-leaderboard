@@ -1,9 +1,9 @@
 ﻿namespace WorldPinball.Application.Security.CA;
 
-public sealed record IssuedCertificate(
+public sealed record IssuedSoftwareCertificate(
     string CertPem,
     string SerialNumber,
-    Guid MachineId,
+    string PublisherName,
     string ThumbprintSha256,
     string SubjectDn,
     string IssuerDn,

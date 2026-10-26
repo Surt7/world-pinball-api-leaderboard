@@ -288,7 +288,7 @@ public class EnrollDeviceResultInvalidToken
                 Arg.Any<string>(), 
                 Arg.Any<string>(), 
                 Arg.Any<CancellationToken>())
-            .Returns(new IssuedCertificate(
+            .Returns(new IssuedDeviceCertificate(
                 CertPem: "-----BEGIN CERTIFICATE-----\nTEST_CERT\n-----END CERTIFICATE-----",
                 SerialNumber: "cert-serial-123",
                 MachineId: machineId,

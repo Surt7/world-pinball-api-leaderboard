@@ -11,5 +11,13 @@ public interface IDeviceEnrollmentWriteRepository
         MachineDevice machineDevice,
         EnrollmentToken enrollmentToken,
         CancellationToken cancellationToken = default);
+    
+    Task AddTokenAsync(
+        EnrollmentToken token,
+        CancellationToken cancellationToken = default);
+    
+    Task UpdateTokenAsync(
+        EnrollmentToken token,
+        CancellationToken cancellationToken = default);
 }
 

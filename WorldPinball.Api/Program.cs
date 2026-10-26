@@ -44,6 +44,9 @@ using WorldPinball.Application.Features.Roles.Admin.RevokePermission;
 using WorldPinball.Application.Interfaces.Services;
 using WorldPinball.Infrastructure.Services;
 using System.Security.Cryptography.X509Certificates;
+using WorldPinball.Application.Features.Certificates.Admin.IssueSoftwareCertificate;
+using WorldPinball.Application.Features.Workstations.Admin.CreateBootstrapToken;
+using WorldPinball.Application.Features.Workstations.Public.EnrollWorkstation;
 
 // -------------------- BUILDER -------------------- BUILDER -------------------- BUILDER --------------------//
 
@@ -185,8 +188,9 @@ try
         EcdsaP256SignatureVerifier>();
     builder.Services.AddScoped<GetLeaderboardHandler>();
   
-
-
+    builder.Services.AddScoped<IIssueSoftwareCertificateHandler, IssueSoftwareCertificateHandler>();
+    builder.Services.AddScoped<ICreateBootstrapTokenHandler, CreateBootstrapTokenHandler>();
+    builder.Services.AddScoped<IEnrollWorkstationHandler, EnrollWorkstationHandler>();
     //Validators
     builder.Services.AddValidatorsFromAssemblyContaining<Program>();
 

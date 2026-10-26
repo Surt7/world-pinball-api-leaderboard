@@ -112,6 +112,12 @@ public static class SecurityExtensions
                 policy.Requirements.Add(new OperatorScopeRequirement("sessions"));
             });
             
+            options.AddPolicy("Operator:SoftwareSign", policy =>
+            {
+                policy.AddAuthenticationSchemes(OperatorTokenAuthenticationHandler.SchemeName);
+                policy.Requirements.Add(new OperatorScopeRequirement("software:sign"));
+            });
+            
             foreach (var permission in Enum.GetValues<Permission>())
             {
                 options.AddPolicy(permission.ToString(), policy =>

@@ -5,5 +5,6 @@ public enum Permission
     MachinesReissueToken,
     ShipmentsDispatch,
     ShipmentsCancel,
-    SessionsPlay
+    SessionsPlay,
+    CertificatesIssueSoftware
 }

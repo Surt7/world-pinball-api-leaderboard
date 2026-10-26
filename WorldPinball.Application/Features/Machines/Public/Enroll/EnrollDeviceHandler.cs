@@ -122,7 +122,7 @@ public sealed class EnrollDeviceHandler(
 
         try
         {
-            token.Consume(device.DeviceId, now);
+            token.Consume( now,device.DeviceId);
         }
         catch (InvalidOperationException ex)
         {

@@ -20,4 +20,21 @@ public class DeviceEnrollmentWriteRepository: IDeviceEnrollmentWriteRepository
         _db.EnrollmentTokens.Update(enrollmentToken);
         await _db.SaveChangesAsync(cancellationToken);
     }
+    
+    
+    public async Task AddTokenAsync(
+        EnrollmentToken token, 
+        CancellationToken cancellationToken = default)
+    {
+        await _db.EnrollmentTokens.AddAsync(token, cancellationToken);
+        await _db.SaveChangesAsync(cancellationToken);
+    }
+    
+    public async Task UpdateTokenAsync(
+        EnrollmentToken token, 
+        CancellationToken cancellationToken = default)
+    {
+        _db.EnrollmentTokens.Update(token);
+        await _db.SaveChangesAsync(cancellationToken);
+    }
 }

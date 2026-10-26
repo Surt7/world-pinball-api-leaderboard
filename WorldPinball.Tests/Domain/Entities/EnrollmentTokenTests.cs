@@ -157,7 +157,7 @@ public class EnrollmentTokenTests
         var consumeDate = NowUtc.AddHours(1);
     
         // Act
-        token.Consume(expectedValidDeviceId, consumeDate);
+        token.Consume(consumeDate,expectedValidDeviceId);
         
         token.UsesCount.Should().Be(1);
         token.ConsumedAtUtc.Should().Be(consumeDate);
@@ -174,7 +174,7 @@ public class EnrollmentTokenTests
             NowUtc,
             NowUtc.AddDays(7));
 
-        Action act = () => token.Consume(Guid.Empty, NowUtc.AddHours(1));
+        Action act = () => token.Consume(NowUtc.AddHours(1),Guid.Empty);
 
         act.Should().Throw<ArgumentException>()
             .WithParameterName("deviceId");
@@ -190,7 +190,7 @@ public class EnrollmentTokenTests
             NowUtc,
             NowUtc.AddDays(7));
 
-        Action act = () => token.Consume(Guid.NewGuid(), default);
+        Action act = () => token.Consume(default ,Guid.NewGuid());
 
         act.Should().Throw<ArgumentException>()
             .WithParameterName("now");
@@ -223,7 +223,7 @@ public class EnrollmentTokenTests
         var expiredDate = NowUtc.AddDays(8);
 
         // Act
-        Action act = () => token.Consume(deviceId, expiredDate);
+        Action act = () => token.Consume(expiredDate,deviceId);
 
         act.Should()
             .Throw<InvalidOperationException>()
@@ -256,7 +256,7 @@ public class EnrollmentTokenTests
         
         var attackerDeviceId = Guid.NewGuid();
         
-        Action act = () => token.Consume(attackerDeviceId, NowUtc.AddMinutes(1));
+        Action act = () => token.Consume( NowUtc.AddMinutes(1),attackerDeviceId);
 
         act.Should().Throw<InvalidOperationException>().WithMessage("*device*");
     }
@@ -286,7 +286,7 @@ public class EnrollmentTokenTests
         
         var anyDeviceId = Guid.NewGuid();
         
-        token.Consume(anyDeviceId, NowUtc.AddHours(1));
+        token.Consume(NowUtc.AddHours(1),anyDeviceId);
 
         // Assert
         token.UsesCount.Should().Be(1);

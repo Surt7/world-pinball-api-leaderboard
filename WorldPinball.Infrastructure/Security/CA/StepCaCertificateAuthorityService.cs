@@ -10,10 +10,11 @@ public sealed class StepCaCertificateAuthorityService(
     TimeProvider timeProvider
 ) : ICertificateAuthorityService
 {
-    // Intermediate CA signing key pair (in-memory authority key for dev / testing)
-    private static readonly ECDsa CaSigningKey = ECDsa.Create(ECCurve.NamedCurves.nistP256);
+    // Intermediate CA signing key pairs (isolated PKI branches for dev / testing)
+    private static readonly ECDsa DeviceCaSigningKey = ECDsa.Create(ECCurve.NamedCurves.nistP256);
+    private static readonly ECDsa SoftwareCaSigningKey = ECDsa.Create(ECCurve.NamedCurves.nistP256);
 
-    public Task<IssuedCertificate> IssueDeviceCertificateAsync(
+    public Task<IssuedDeviceCertificate> IssueDeviceCertificateAsync(
         Guid machineId,
         string deviceSerialNumber,
         string publicKeyPem,
@@ -70,7 +71,7 @@ public sealed class StepCaCertificateAuthorityService(
         const string issuerDn = "CN=WorldPinball Intermediate CA, O=WorldPinball Internal CA";
         using var cert = request.Create(
             new X500DistinguishedName(issuerDn),
-            X509SignatureGenerator.CreateForECDsa(CaSigningKey),
+            X509SignatureGenerator.CreateForECDsa(DeviceCaSigningKey),
             notBefore,
             notAfter,
             serialNumberBytes);
@@ -84,7 +85,7 @@ public sealed class StepCaCertificateAuthorityService(
             deviceSerialNumber,
             certSerialNumber);
 
-        var issued = new IssuedCertificate(
+        var issued = new IssuedDeviceCertificate(
             CertPem: certPem,
             SerialNumber: certSerialNumber,
             MachineId: machineId,
@@ -97,4 +98,170 @@ public sealed class StepCaCertificateAuthorityService(
 
         return Task.FromResult(issued);
     }
+
+    // To protect the software
+    public Task<IssuedSoftwareCertificate> IssueSoftwareSigningCertificateAsync(
+        string publisherName,
+        string publicKeyPem,
+        CancellationToken ct = default)
+    {
+        var now = timeProvider.GetUtcNow().UtcDateTime;
+        var notBefore = now.AddMinutes(-5);
+        var notAfter = now.AddYears(1);
+
+        using var softwarePublicKey = ECDsa.Create(ECCurve.NamedCurves.nistP256);
+        softwarePublicKey.ImportFromPem(publicKeyPem);
+        
+        var subjectDn = $"CN={publisherName}, O=WorldPinball, OU=Software";
+
+        var request = new CertificateRequest(
+            new X500DistinguishedName(subjectDn),
+            softwarePublicKey,
+            HashAlgorithmName.SHA256);
+
+        request.CertificateExtensions.Add(
+            new X509BasicConstraintsExtension(
+                certificateAuthority: false,
+                hasPathLengthConstraint: false,
+                pathLengthConstraint: 0,
+                critical: true));
+        
+        request.CertificateExtensions.Add(
+            new X509KeyUsageExtension(
+                X509KeyUsageFlags.DigitalSignature,
+                critical:true));
+        
+        
+        // OID for id-kp-codeSigning (software)
+        request.CertificateExtensions.Add(
+            new X509EnhancedKeyUsageExtension(
+                new OidCollection { new("1.3.6.1.5.5.7.3.3") },
+                critical: true));
+        var sanBuilder  = new SubjectAlternativeNameBuilder();
+        sanBuilder.AddUri(new Uri($"urn:software:{publisherName}"));
+        request.CertificateExtensions.Add(sanBuilder.Build());
+        
+        Span<byte> serialNumberBytes = stackalloc byte[16];
+        RandomNumberGenerator.Fill(serialNumberBytes);
+        serialNumberBytes[0] &= 0x7F;
+        
+        const string issuerDn = "CN=WorldPinball Software Intermediate CA, O=WorldPinball Internal CA";
+        
+        using var cert = request.Create(
+            new X500DistinguishedName(issuerDn),
+            X509SignatureGenerator.CreateForECDsa(SoftwareCaSigningKey),
+            notBefore,
+            notAfter,
+            serialNumberBytes);
+        
+        var  certPem = cert.ExportCertificatePem();
+        var certSerialNumber = Convert.ToHexString(serialNumberBytes).ToLowerInvariant();
+        var thumbprint = Convert.ToHexString(SHA256.HashData(cert.RawData)).ToLowerInvariant();
+
+        
+        logger.LogInformation(
+            "Issued X.509 certificate for software serial {publisherName} (CertSerial: {CertSerial})",
+            publisherName,
+            certSerialNumber);
+        
+        var issued = new IssuedSoftwareCertificate(
+            CertPem: certPem,
+            SerialNumber: certSerialNumber,
+            PublisherName: publisherName,
+            ThumbprintSha256: thumbprint,
+            SubjectDn: subjectDn,
+            IssuerDn: issuerDn,
+            NotBeforeUtc: notBefore,
+            NotAfterUtc: notAfter
+             );
+        
+        
+        // throw new NotImplementedException();
+        return Task.FromResult(issued);
+    }
+    
+    
+    // To protect the workstation
+    public Task<IssuedWorkstationCertificate> IssueWorkstationCertificateAsync(
+    string workstationName,
+    string publicKeyPem,
+    CancellationToken ct = default)
+{
+    var now = timeProvider.GetUtcNow().UtcDateTime;
+    var notBefore = now.AddMinutes(-5); // Clock skew tolerance
+    var notAfter = now.AddYears(1);     // Validity: 1 year
+
+    // 1. Import workstation ECDSA public key from TPM
+    using var workstationPublicKey = ECDsa.Create();
+    workstationPublicKey.ImportFromPem(publicKeyPem);
+
+    // 2. Build Certificate Signing Request (CSR)
+    var subjectDn = $"CN={workstationName}, O=WorldPinball, OU=Workstations";
+    var request = new CertificateRequest(
+        new X500DistinguishedName(subjectDn),
+        workstationPublicKey,
+        HashAlgorithmName.SHA256);
+
+    // 3. Leaf certificate constraints
+    request.CertificateExtensions.Add(
+        new X509BasicConstraintsExtension(
+            certificateAuthority: false,
+            hasPathLengthConstraint: false,
+            pathLengthConstraint: 0,
+            critical: true));
+
+    // Key Usage: Digital Signature and Key Agreement (for TLS negotiation)
+    request.CertificateExtensions.Add(
+        new X509KeyUsageExtension(
+            X509KeyUsageFlags.DigitalSignature | X509KeyUsageFlags.KeyAgreement,
+            critical: true));
+
+    // Enhanced Key Usage (EKU): TLS Web Client Authentication (RFC 5280 - 1.3.6.1.5.5.7.3.2)
+    request.CertificateExtensions.Add(
+        new X509EnhancedKeyUsageExtension(
+            new OidCollection { new("1.3.6.1.5.5.7.3.2") },
+            critical: true));
+
+    // SAN: Workstation URN
+    var sanBuilder = new SubjectAlternativeNameBuilder();
+    sanBuilder.AddUri(new Uri($"urn:pinball:workstation:{workstationName}"));
+    request.CertificateExtensions.Add(sanBuilder.Build());
+
+    // 4. Random 16-byte positive serial number
+    Span<byte> serialNumberBytes = stackalloc byte[16];
+    RandomNumberGenerator.Fill(serialNumberBytes);
+    serialNumberBytes[0] &= 0x7F;
+
+    // 5. Sign with the Device Intermediate CA
+    const string issuerDn = "CN=WorldPinball Device Intermediate CA, O=WorldPinball Internal CA";
+    using var cert = request.Create(
+        new X500DistinguishedName(issuerDn),
+        X509SignatureGenerator.CreateForECDsa(DeviceCaSigningKey),
+        notBefore,
+        notAfter,
+        serialNumberBytes);
+
+    var certPem = cert.ExportCertificatePem();
+    var certSerialNumber = Convert.ToHexString(serialNumberBytes).ToLowerInvariant();
+    var thumbprint = Convert.ToHexString(SHA256.HashData(cert.RawData)).ToLowerInvariant();
+
+    logger.LogInformation(
+        "Issued X.509 workstation client certificate for {WorkstationName} (Serial: {CertSerial})",
+        workstationName,
+        certSerialNumber);
+
+    var issued = new IssuedWorkstationCertificate(
+        CertPem: certPem,
+        SerialNumber: certSerialNumber,
+        WorkstationName: workstationName,
+        ThumbprintSha256: thumbprint,
+        SubjectDn: subjectDn,
+        IssuerDn: issuerDn,
+        NotBeforeUtc: notBefore,
+        NotAfterUtc: notAfter
+    );
+
+    return Task.FromResult(issued);
+}
+    
 }
