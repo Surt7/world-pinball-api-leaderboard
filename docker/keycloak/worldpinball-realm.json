@@ -207,7 +207,35 @@
                                                     "profile",
                                                     "basic",
                                                     "email"
-                                                ]
+                                                ],
+                        "protocolMappers":  [
+                                                {
+                                                    "name":  "worldpinball-api-audience",
+                                                    "protocol":  "openid-connect",
+                                                    "protocolMapper":  "oidc-audience-mapper",
+                                                    "consentRequired":  false,
+                                                    "config":  {
+                                                                   "included.client.audience":  "worldpinball-api",
+                                                                   "id.token.claim":  "false",
+                                                                   "access.token.claim":  "true",
+                                                                   "introspection.token.claim":  "true"
+                                                               }
+                                                },
+                                                {
+                                                    "name":  "realm-roles",
+                                                    "protocol":  "openid-connect",
+                                                    "protocolMapper":  "oidc-usermodel-realm-role-mapper",
+                                                    "consentRequired":  false,
+                                                    "config":  {
+                                                                   "userinfo.token.claim":  "true",
+                                                                   "id.token.claim":  "true",
+                                                                   "access.token.claim":  "true",
+                                                                   "claim.name":  "roles",
+                                                                   "jsonType.label":  "String",
+                                                                   "multivalued":  "true"
+                                                               }
+                                                }
+                                            ]
                     }
                 ]
 }
