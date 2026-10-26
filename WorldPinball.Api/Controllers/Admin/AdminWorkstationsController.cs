@@ -27,6 +27,7 @@ public sealed class AdminWorkstationsController(
 
         var command = new CreateBootstrapTokenCommand(
             IssuedByUserId: issuedByUser,
+            WorkstationType: request.WorkstationType,
             Notes: request.Notes,
             ValidityHours: request.ValidityHours
         );
@@ -38,7 +39,8 @@ public sealed class AdminWorkstationsController(
             CreateBootstrapTokenResult.Success success => Ok(new CreateBootstrapTokenResponse(
                 success.TokenId,
                 success.RawBootstrapToken,
-                success.ExpiresAtUtc
+                success.ExpiresAtUtc,
+                success.WorkstationType
             )),
 
             CreateBootstrapTokenResult.Failure failure => BadRequest(new

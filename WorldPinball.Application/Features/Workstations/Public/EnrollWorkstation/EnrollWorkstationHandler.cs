@@ -72,17 +72,21 @@ public sealed class EnrollWorkstationHandler(
             return new EnrollWorkstationResult.InvalidToken("Token not found.");
         }
 
-        if (token.TokenType != EnrollmentTokenType.AdminBootstrap)
+        if (token.TokenType is not (EnrollmentTokenType.AdminBootstrap or EnrollmentTokenType.TerminalBootstrap))
         {
             logger.LogWarning(
                 WorkstationTokenTypeMismatch,
                 "Workstation enrollment rejected for {WorkstationName}: token type mismatch ({TokenType}).",
                 command.WorkstationName,
                 token.TokenType);
-
             return new EnrollWorkstationResult.InvalidToken("Token is not valid for workstation enrollment.");
         }
 
+        var workstationType = token.TokenType == EnrollmentTokenType.AdminBootstrap
+            ? WorkstationType.AdminWorkstation
+            : WorkstationType.FieldTerminal;
+        
+        
         var now = timeProvider.GetUtcNow().UtcDateTime;
 
         try
@@ -111,6 +115,7 @@ public sealed class EnrollWorkstationHandler(
             var issuedCert = await caService.IssueWorkstationCertificateAsync(
                 command.WorkstationName,
                 command.PublicKeyPem,
+                workstationType,
                 ct);
 
             logger.LogInformation(

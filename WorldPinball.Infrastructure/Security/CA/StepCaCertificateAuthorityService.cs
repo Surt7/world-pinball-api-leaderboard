@@ -2,6 +2,7 @@
 using System.Security.Cryptography.X509Certificates;
 using Microsoft.Extensions.Logging;
 using WorldPinball.Application.Security.CA;
+using WorldPinball.Domain.Enums;
 
 namespace WorldPinball.Infrastructure.Security.CA;
 
@@ -99,7 +100,9 @@ public sealed class StepCaCertificateAuthorityService(
         return Task.FromResult(issued);
     }
 
-    // To protect the software
+    /// <summary>
+    /// To protect software
+    /// </summary>
     public Task<IssuedSoftwareCertificate> IssueSoftwareSigningCertificateAsync(
         string publisherName,
         string publicKeyPem,
@@ -176,15 +179,18 @@ public sealed class StepCaCertificateAuthorityService(
              );
         
         
-        // throw new NotImplementedException();
+    
         return Task.FromResult(issued);
     }
     
     
-    // To protect the workstation
+    /// <summary>
+    /// To protect workstation
+    /// </summary>
     public Task<IssuedWorkstationCertificate> IssueWorkstationCertificateAsync(
     string workstationName,
     string publicKeyPem,
+    WorkstationType workstationType = WorkstationType.AdminWorkstation,
     CancellationToken ct = default)
 {
     var now = timeProvider.GetUtcNow().UtcDateTime;
@@ -196,7 +202,17 @@ public sealed class StepCaCertificateAuthorityService(
     workstationPublicKey.ImportFromPem(publicKeyPem);
 
     // 2. Build Certificate Signing Request (CSR)
-    var subjectDn = $"CN={workstationName}, O=WorldPinball, OU=Workstations";
+    var ou = workstationType == WorkstationType.AdminWorkstation 
+        ? "AdminWorkstations" 
+        : "FieldTerminals";
+
+    var urnPrefix = workstationType == WorkstationType.AdminWorkstation 
+        ? "admin" 
+        : "terminal";
+
+    var subjectDn = $"CN={workstationName}, O=WorldPinball, OU={ou}";
+    
+    
     var request = new CertificateRequest(
         new X500DistinguishedName(subjectDn),
         workstationPublicKey,
@@ -224,7 +240,7 @@ public sealed class StepCaCertificateAuthorityService(
 
     // SAN: Workstation URN
     var sanBuilder = new SubjectAlternativeNameBuilder();
-    sanBuilder.AddUri(new Uri($"urn:pinball:workstation:{workstationName}"));
+    sanBuilder.AddUri(new Uri($"urn:pinball:workstation:{urnPrefix}:{workstationName}"));
     request.CertificateExtensions.Add(sanBuilder.Build());
 
     // 4. Random 16-byte positive serial number

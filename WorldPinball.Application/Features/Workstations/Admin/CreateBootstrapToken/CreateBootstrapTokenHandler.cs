@@ -39,10 +39,17 @@ public sealed class CreateBootstrapTokenHandler(
         // 1. Generate cryptographically strong random OTP secret
         var secret = secretService.Generate();
 
+        var tokenType = command.WorkstationType switch
+        {
+            WorkstationType.AdminWorkstation => EnrollmentTokenType.AdminBootstrap,
+            WorkstationType.FieldTerminal => EnrollmentTokenType.TerminalBootstrap,
+            _ => throw new ArgumentOutOfRangeException(nameof(command.WorkstationType), "Unsupported workstation type.")
+        };
+        
         // 2. Create single-use AdminBootstrap token (hash stored in DB)
         var token = new EnrollmentToken(
             tokenHash: secret.HashHex,
-            tokenType: EnrollmentTokenType.AdminBootstrap,
+            tokenType: tokenType,
             issuedByUserId: command.IssuedByUserId,
             issuedAt: nowUtc,
             expiresAt: expiresAtUtc,
@@ -68,7 +75,9 @@ public sealed class CreateBootstrapTokenHandler(
         return new CreateBootstrapTokenResult.Success(
             token.TokenId,
             secret.PlainBase64,
-            expiresAtUtc);
+            expiresAtUtc,
+            command.WorkstationType
+            );
     }
 }
 

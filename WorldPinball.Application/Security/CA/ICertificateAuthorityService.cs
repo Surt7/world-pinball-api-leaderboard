@@ -1,4 +1,6 @@
-﻿namespace WorldPinball.Application.Security.CA;
+﻿using WorldPinball.Domain.Enums;
+
+namespace WorldPinball.Application.Security.CA;
 
 public interface ICertificateAuthorityService
 {
@@ -16,5 +18,6 @@ public interface ICertificateAuthorityService
     Task<IssuedWorkstationCertificate> IssueWorkstationCertificateAsync(
         string workstationName,
         string publicKeyPem,
+        WorkstationType workstationType = WorkstationType.AdminWorkstation,
         CancellationToken ct = default);
 }
