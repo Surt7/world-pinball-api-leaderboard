@@ -17,33 +17,49 @@ public sealed class MachineReadRepository : IMachineReadRepository
     
     public async Task<IReadOnlyList<MachineRowDto>> GetAllMachines(CancellationToken ct)
     {
-        return await _db.Machines
-            .AsNoTracking()
-            .Select(machine => new MachineRowDto(
-                machine.MachineId,
-                machine.IpLicense.Name,
-                machine.DisplayName,
-                machine.Status,
-                machine.MachineNotes,
-                machine.RegisteredAtUtc,
-                machine.UpdatedAtUtc,
-                machine.WorldPinballSerialNumber)).ToListAsync<MachineRowDto>(ct);
+        return await (from machine in _db.Machines.AsNoTracking()
+                      let activeCert = _db.MachineDevices
+                          .Where(md => md.MachineId == machine.MachineId && md.IsActive)
+                          .SelectMany(md => _db.DeviceCertificates
+                              .Where(c => c.DeviceId == md.DeviceId)
+                              .OrderByDescending(c => c.IssuedAtUtc))
+                          .FirstOrDefault()
+                      select new MachineRowDto(
+                          machine.MachineId,
+                          machine.IpLicense.Name,
+                          machine.DisplayName,
+                          machine.Status,
+                          machine.MachineNotes,
+                          machine.RegisteredAtUtc,
+                          machine.UpdatedAtUtc,
+                          machine.WorldPinballSerialNumber,
+                          activeCert != null ? activeCert.NotAfterUtc : (DateTime?)null,
+                          activeCert != null ? (int)activeCert.Status : (int?)null
+                      )).ToListAsync(ct);
     }
     
     public async Task<MachineRowDto?> GetMachinesWithId(Guid machineId, CancellationToken ct)
     {
-        return await _db.Machines
-            .AsNoTracking()
-            .Where(m => m.MachineId == machineId)
-            .Select(machine => new MachineRowDto(
-                machine.MachineId,
-                machine.IpLicense.Name,
-                machine.DisplayName,
-                machine.Status,
-                machine.MachineNotes,
-                machine.RegisteredAtUtc,
-                machine.UpdatedAtUtc,
-                machine.WorldPinballSerialNumber)).SingleOrDefaultAsync(ct);
+        return await (from machine in _db.Machines.AsNoTracking()
+                      where machine.MachineId == machineId
+                      let activeCert = _db.MachineDevices
+                          .Where(md => md.MachineId == machine.MachineId && md.IsActive)
+                          .SelectMany(md => _db.DeviceCertificates
+                              .Where(c => c.DeviceId == md.DeviceId)
+                              .OrderByDescending(c => c.IssuedAtUtc))
+                          .FirstOrDefault()
+                      select new MachineRowDto(
+                          machine.MachineId,
+                          machine.IpLicense.Name,
+                          machine.DisplayName,
+                          machine.Status,
+                          machine.MachineNotes,
+                          machine.RegisteredAtUtc,
+                          machine.UpdatedAtUtc,
+                          machine.WorldPinballSerialNumber,
+                          activeCert != null ? activeCert.NotAfterUtc : (DateTime?)null,
+                          activeCert != null ? (int)activeCert.Status : (int?)null
+                      )).SingleOrDefaultAsync(ct);
     }
 
     public async Task<MachineSecurityDto?> GetMachineSecurityAsync(Guid machineId, CancellationToken ct = default)
