@@ -1,3 +1,4 @@
+using WorldPinball.Application.Features.Machines.Admin.GetMachineSecurity.Dtos;
 using WorldPinball.Application.Features.Machines.Admin.Provision.Dtos;
 
 namespace WorldPinball.Application.Interfaces.Repositories;
@@ -8,6 +9,10 @@ public interface IMachineReadRepository
         CancellationToken ct = default);
 
     Task<MachineRowDto?> GetMachinesWithId(
+        Guid machineId,
+        CancellationToken ct = default);
+
+    Task<MachineSecurityDto?> GetMachineSecurityAsync(
         Guid machineId,
         CancellationToken ct = default);
 }

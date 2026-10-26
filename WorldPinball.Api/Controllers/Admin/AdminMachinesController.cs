@@ -1,3 +1,6 @@
+using WorldPinball.Application.Features.Machines.Admin.GetMachineSecurity;
+using WorldPinball.Application.Features.Machines.Admin.GetMachineSecurity.Dtos;
+using WorldPinball.Application.Features.Machines.Admin.GetMachineSecurity.Queries;
 using Microsoft.AspNetCore.Mvc;
 using WorldPinball.Api.Filters.Idempotency;
 using WorldPinball.Api.Security.Permissions;
@@ -195,6 +198,25 @@ public sealed class AdminMachinesController(
         {
             GetAllMachinesResult.Success success => Ok(success.Machines),
             GetAllMachinesResult.NotFound => NotFound(new { message = "No machines found." }),
+            _ => throw new InvalidOperationException($"Unsupported result: {result.GetType().Name}")
+        };
+    }
+
+    [HttpGet("{machineId:guid}/security")]
+    [Authorize(Roles = "Admin")]
+    [EndpointSummary("Retrieves cryptographic identity, TPM device and hardware certificate details for a machine")]
+    [ProducesResponseType(typeof(MachineSecurityDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<MachineSecurityDto>> GetMachineSecurity(
+        [FromRoute] Guid machineId,
+        [FromServices] IGetMachineSecurityHandler handler,
+        CancellationToken ct)
+    {
+        var result = await handler.HandleAsync(new GetMachineSecurityQuery(machineId), ct);
+        return result switch
+        {
+            GetMachineSecurityResult.Success success => Ok(success.Security),
+            GetMachineSecurityResult.MachineNotFound nf => NotFound(new { message = $"Machine '{nf.MachineId}' not found." }),
             _ => throw new InvalidOperationException($"Unsupported result: {result.GetType().Name}")
         };
     }

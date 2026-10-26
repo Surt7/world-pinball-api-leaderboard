@@ -1,3 +1,4 @@
+using WorldPinball.Application.Features.Machines.Admin.GetMachineSecurity;
 using Serilog;
 using WorldPinball.Api.Extensions;
 using WorldPinball.Api.Logging;
@@ -164,6 +165,7 @@ try
 
     builder.Services.AddScoped<IGetMachineDashboardHandler, GetMachineDashboardHandler>();
     builder.Services.AddScoped<IGetAllMachinesHandler, GetAllMachinesHandler>();
+    builder.Services.AddScoped<IGetMachineSecurityHandler, GetMachineSecurityHandler>();
     builder.Services.AddScoped<IGetAllGameModesHandler, GetAllGameModesHandler>();
     builder.Services.AddScoped<IGetAllIpLicensesHandler, GetAllIpLicensesHandler>();
     builder.Services.AddScoped<IJoinMatchmakingQueueHandler, JoinMatchmakingQueueHandler>();
