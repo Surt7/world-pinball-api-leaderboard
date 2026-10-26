@@ -327,6 +327,114 @@ public class EnrollDeviceResultInvalidToken
             token,
             Arg.Any<CancellationToken>()
         );
+
+        await repoDeviceWriteEnroll.Received(1).SaveCertificateAsync(
+            Arg.Is<DeviceCertificate>(c => c.CertSerialNumber == "cert-serial-123"),
+            Arg.Any<CancellationToken>()
+        );
+    }
+
+    [Fact]
+    public async Task HandleAsync_WhenEnrollmentSucceeds_ShouldSaveDeviceCertificateWithIntermediateCa()
+    {
+        var (plainText, tokenHash) = GenerateValidTokenPair();
+        var timeProvider = TimeProvider.System;
+        var now = timeProvider.GetUtcNow().UtcDateTime;
+
+        var logger = NullLogger<EnrollDeviceHandler>.Instance;
+        var repoDeviceReadEnroll = Substitute.For<IDeviceEnrollmentReadRepository>();
+        var repoDeviceWriteEnroll = Substitute.For<IDeviceEnrollmentWriteRepository>();
+        var caService = Substitute.For<ICertificateAuthorityService>();
+        var repoMachineWrite = Substitute.For<IMachineWriteRepository>();
+
+        var machine = new Machine(
+            ipId: Guid.NewGuid(),
+            serialNumber: "WP-TEST-CERT",
+            displayName: "Test Machine For Cert",
+            registeredAtUtc: now,
+            idempotencyKey: Guid.NewGuid(),
+            nonce: "test-nonce"
+        );
+        var machineId = machine.MachineId;
+
+        var ca = new CaCertificate(
+            CaType.Intermediate,
+            "CN=WorldPinball Development CA 2",
+            "CN=WorldPinball Development CA 1",
+            "CA-0002",
+            "thumbprint-ca",
+            "PEM-CA",
+            now.AddDays(-30),
+            now.AddYears(5),
+            now
+        );
+
+        var token = new EnrollmentToken(
+            tokenHash: tokenHash,
+            tokenType: EnrollmentTokenType.DeviceEnroll,
+            issuedByUserId: "admin-1",
+            issuedAt: now,
+            expiresAt: now.AddHours(1),
+            machineId: machineId
+        );
+
+        repoDeviceReadEnroll
+            .GetTokenByHashAsync(tokenHash, Arg.Any<CancellationToken>())
+            .Returns(token);
+
+        repoDeviceReadEnroll
+            .DeviceSerialExistsAsync("DEV-CERT-01", Arg.Any<CancellationToken>())
+            .Returns(false);
+
+        repoDeviceReadEnroll
+            .GetActiveCaAsync(Arg.Any<CancellationToken>())
+            .Returns(ca);
+
+        repoMachineWrite
+            .GetByIdAsync(machineId, Arg.Any<CancellationToken>())
+            .Returns(machine);
+
+        caService.IssueDeviceCertificateAsync(Arg.Any<Guid>(),
+                Arg.Any<string>(), 
+                Arg.Any<string>(), 
+                Arg.Any<CancellationToken>())
+            .Returns(new IssuedDeviceCertificate(
+                CertPem: "-----BEGIN CERTIFICATE-----\nTEST_CERT\n-----END CERTIFICATE-----",
+                SerialNumber: "cert-persisted-serial",
+                MachineId: machineId,
+                ThumbprintSha256: "thumbprint-cert-persisted",
+                SubjectDn: "CN=DEV-CERT-01",
+                IssuerDn: "CN=WorldPinball Development CA 2",
+                NotBeforeUtc: now,
+                NotAfterUtc: now.AddYears(1)));
+
+        var command = new EnrollDeviceCommand(
+            MachineId: machineId,
+            DeviceSerialNumber: "DEV-CERT-01",
+            PlainEnrollmentToken: plainText,
+            PublicKeyPem: "PUBLIC_KEY"
+        );
+
+        var sut = new EnrollDeviceHandler(
+            repoDeviceWriteEnroll,
+            repoDeviceReadEnroll,
+            repoMachineWrite,
+            caService,
+            _secretService,
+            logger,
+            timeProvider
+        );
+
+        var result = await sut.HandleAsync(command);
+
+        result.Should().BeOfType<EnrollDeviceResult.Success>();
+        await repoDeviceWriteEnroll.Received(1).SaveCertificateAsync(
+            Arg.Is<DeviceCertificate>(c => 
+                c.CertSerialNumber == "cert-persisted-serial" && 
+                c.CaId == ca.CaId &&
+                c.Status == DeviceCertificateStatus.Active),
+            Arg.Any<CancellationToken>()
+        );
     }
 
     [Fact]

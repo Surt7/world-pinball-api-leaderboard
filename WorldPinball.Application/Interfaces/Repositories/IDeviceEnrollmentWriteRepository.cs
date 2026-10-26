@@ -2,14 +2,16 @@ using WorldPinball.Domain.Entities;
 
 namespace WorldPinball.Application.Interfaces.Repositories;
 
-
-
 public interface IDeviceEnrollmentWriteRepository
 {
     Task SaveEnrollmentAsync(
         Device device,
         MachineDevice machineDevice,
         EnrollmentToken enrollmentToken,
+        CancellationToken cancellationToken = default);
+
+    Task SaveCertificateAsync(
+        DeviceCertificate certificate,
         CancellationToken cancellationToken = default);
     
     Task AddTokenAsync(
@@ -20,4 +22,3 @@ public interface IDeviceEnrollmentWriteRepository
         EnrollmentToken token,
         CancellationToken cancellationToken = default);
 }
-

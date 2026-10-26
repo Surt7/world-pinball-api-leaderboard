@@ -11,7 +11,7 @@ public interface IDeviceEnrollmentReadRepository
     Task<bool> DeviceSerialExistsAsync(
         string serialPhysical,
         CancellationToken cancellationToken = default);
+
+    Task<CaCertificate?> GetActiveCaAsync(
+        CancellationToken cancellationToken = default);
 }
-
-
-
