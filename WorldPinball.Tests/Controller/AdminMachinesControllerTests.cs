@@ -16,6 +16,9 @@ using WorldPinball.Application.Features.Machines.Admin.Provision.Commands;
 using WorldPinball.Application.Features.Machines.Admin.ReissueToken;
 using WorldPinball.Application.Features.Machines.Admin.GetAllMachines;
 using WorldPinball.Application.Features.Machines.Admin.GetAllMachines.Queries;
+using WorldPinball.Application.Features.Machines.Admin.GetMachineSecurity;
+using WorldPinball.Application.Features.Machines.Admin.GetMachineSecurity.Dtos;
+using WorldPinball.Application.Features.Machines.Admin.GetMachineSecurity.Queries;
 using WorldPinball.Application.Features.Machines.Admin.Provision.Dtos;
 using WorldPinball.Domain.Enums;
 
@@ -119,11 +122,9 @@ public class AdminMachinesControllerTests
         
         var result = await controller.GetDashboard(machineId, handler, CancellationToken.None);
         
-        
         result.Result.Should().BeOfType<OkObjectResult>()
             .Which.Value.Should().BeEquivalentTo(expectedDto);
     }
-    
     
     [Fact]
     public async Task GetDashboard_WhenMachineNotFound_ShouldReturnNotFound()
@@ -143,9 +144,7 @@ public class AdminMachinesControllerTests
         
         var result = await controller.GetDashboard(machineId, handler, CancellationToken.None);
 
-
         result.Result.Should().BeOfType<NotFoundObjectResult>();
-
     }
 
     [Fact]
@@ -199,6 +198,75 @@ public class AdminMachinesControllerTests
 
         // Act
         var result = await controller.GetAllMachines(handler, CancellationToken.None);
+
+        // Assert
+        result.Result.Should().BeOfType<NotFoundObjectResult>();
+    }
+
+    [Fact]
+    public async Task GetMachineSecurity_WhenMachineExists_ShouldReturnOkWithSecurityDto()
+    {
+        // Arrange
+        var machineId = Guid.NewGuid();
+        var expectedDto = new MachineSecurityDto(
+            machineId,
+            "WP-00001",
+            "Attack From Mars",
+            1, // Active
+            HasAttachedDevice: true,
+            DeviceId: Guid.NewGuid(),
+            DevicePhysicalSerial: "TPM-AFM-01",
+            HasCertificate: true,
+            CertSerialNumber: "ABCD1234EF5678",
+            CertThumbprintSha256: "THUMBPRINT123",
+            SubjectDn: "CN=TPM-AFM-01",
+            IssuerDn: "CN=WorldPinball Intermediate CA",
+            NotBeforeUtc: DateTime.UtcNow.AddMonths(-1),
+            NotAfterUtc: DateTime.UtcNow.AddMonths(11),
+            CertStatus: 1,
+            IsExpired: false,
+            IsValid: true,
+            StatusExplanation: "Certificat matériel TPM valide et vérifié."
+        );
+
+        var controller = new AdminMachinesController(
+            Substitute.For<IProvisionMachineHandler>(),
+            Substitute.For<IReissueEnrollmentTokenHandler>(),
+            Substitute.For<IValidator<ProvisionMachineRequest>>());
+
+        var handler = Substitute.For<IGetMachineSecurityHandler>();
+        handler.HandleAsync(
+                Arg.Is<GetMachineSecurityQuery>(q => q.MachineId == machineId),
+                Arg.Any<CancellationToken>())
+            .Returns(new GetMachineSecurityResult.Success(expectedDto));
+
+        // Act
+        var result = await controller.GetMachineSecurity(machineId, handler, CancellationToken.None);
+
+        // Assert
+        var okResult = result.Result.Should().BeOfType<OkObjectResult>().Which;
+        okResult.Value.Should().BeEquivalentTo(expectedDto);
+    }
+
+    [Fact]
+    public async Task GetMachineSecurity_WhenMachineNotFound_ShouldReturnNotFound()
+    {
+        // Arrange
+        var machineId = Guid.NewGuid();
+
+        var controller = new AdminMachinesController(
+            Substitute.For<IProvisionMachineHandler>(),
+            Substitute.For<IReissueEnrollmentTokenHandler>(),
+            Substitute.For<IValidator<ProvisionMachineRequest>>());
+
+        var handler = Substitute.For<IGetMachineSecurityHandler>();
+        handler.HandleAsync(
+                Arg.Is<GetMachineSecurityQuery>(q => q.MachineId == machineId),
+                Arg.Any<CancellationToken>())
+            .Returns(new GetMachineSecurityResult.MachineNotFound(machineId));
+
+        // Act
+        var result = await controller.GetMachineSecurity(machineId, handler, CancellationToken.None);
 
         // Assert
         result.Result.Should().BeOfType<NotFoundObjectResult>();
