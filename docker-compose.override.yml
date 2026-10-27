@@ -78,6 +78,8 @@ services:
       SSL_CERT_FILE: "/app/certs/dev-rootCA.pem"
       Services__CoreApi__Https: "https://core-api.worldpinball.local:8443"
       ReverseProxy__Clusters__core-api-cluster__Destinations__destination1__Address: "https://core-api.worldpinball.local:8443"
+      ReverseProxy__Routes__graphql-route__ClusterId: "core-api-cluster"
+      ReverseProxy__Routes__graphql-route__Match__Path: "/graphql"
       Keycloak__Authority: "https://auth.worldpinball.local/realms/worldpinball"
       Keycloak__MetadataAddress: "http://keycloak:8080/realms/worldpinball/.well-known/openid-configuration"
       Keycloak__Audience: "worldpinball-bff"

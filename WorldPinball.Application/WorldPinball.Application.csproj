@@ -8,6 +8,8 @@
 
   <ItemGroup>
     <PackageReference Include="AutoMapper" Version="16.2.0" />
+    <PackageReference Include="HotChocolate.AspNetCore" Version="16.7.1" />
+    <PackageReference Include="HotChocolate.Data.EntityFramework" Version="16.7.1" />
     <PackageReference Include="MediatR" Version="14.2.0" />
     <PackageReference Include="Microsoft.AspNetCore.WebUtilities" Version="10.0.11" />
       <PackageReference

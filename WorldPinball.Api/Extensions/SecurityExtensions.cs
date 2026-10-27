@@ -8,6 +8,7 @@ using Microsoft.IdentityModel.Tokens;
 using WorldPinball.Api.Security.Permissions;
 using WorldPinball.Infrastructure.Security.Authentification;
 using WorldPinball.Infrastructure.Security.Authorization;
+using Path = System.IO.Path;
 
 namespace WorldPinball.Api.Extensions;
 

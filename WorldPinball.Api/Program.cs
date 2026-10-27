@@ -45,9 +45,11 @@ using WorldPinball.Application.Features.Roles.Admin.RevokePermission;
 using WorldPinball.Application.Interfaces.Services;
 using WorldPinball.Infrastructure.Services;
 using System.Security.Cryptography.X509Certificates;
+using WorldPinball.Api.GraphQL;
 using WorldPinball.Application.Features.Certificates.Admin.IssueSoftwareCertificate;
 using WorldPinball.Application.Features.Workstations.Admin.CreateBootstrapToken;
 using WorldPinball.Application.Features.Workstations.Public.EnrollWorkstation;
+using Path = System.IO.Path;
 
 // -------------------- BUILDER -------------------- BUILDER -------------------- BUILDER --------------------//
 
@@ -181,7 +183,17 @@ try
     builder.Services.AddScoped<IGrantPermissionToRoleHandler, GrantPermissionToRoleHandler>();
     builder.Services.AddScoped<IRevokePermissionFromRoleHandler, RevokePermissionFromRoleHandler>();
 
-
+    //graphQL
+    builder.Services
+        .AddGraphQLServer()
+        .AddQueryType<Query>()
+        .AddType<ScoreEntryType>()
+        .AddType<MachineType>()
+        .AddType<UserProfileType>()
+        .AddProjections()
+        .AddFiltering()
+        .AddSorting();
+    
     // Security
     builder.Services.AddScoped<IMachineAuthService, MachineAuthService>();
     builder.Services.AddScoped<ICanonicalBuilder, CanonicalBuilder>();
@@ -219,6 +231,8 @@ try
     
     app.UseForwardedHeadersForReverseProxy();
     
+    app.MapGraphQL(); 
+    
     
     if (app.Environment.IsDevelopment() || app.Environment.IsStaging() || app.Configuration.GetValue<bool>("DOTNET_RUN_MIGRATIONS"))
     {
@@ -228,7 +242,7 @@ try
     if (app.Environment.IsDevelopment() || app.Environment.IsStaging())
     {
         await app.Services.SeedDevelopmentDataAsync();
-
+        
         app.UseDeveloperExceptionPage();
         app.UseWorldPinballApiDocumentation();
 
