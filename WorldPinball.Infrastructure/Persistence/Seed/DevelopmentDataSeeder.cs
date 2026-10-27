@@ -168,6 +168,19 @@ public static class DevelopmentDataSeeder
                 var defaultRolePermissions = CreateRolePermissions();
                 await context.RolePermissions.AddRangeAsync(defaultRolePermissions, cancellationToken);
             }
+
+            if (!await context.Set<UserProfile>().AnyAsync(cancellationToken))
+            {
+                var player1Profile = new UserProfile(
+                    Guid.Parse("a2c66552-2b07-42cb-9814-0f5abacfd902"),
+                    displayName: "Philippe",
+                    initials: "PHI",
+                    avatarUrl: string.Empty,
+                    countryCode: "FR",
+                    isProfilePublic: true,
+                    createdAtUtc: now);
+                await context.Set<UserProfile>().AddAsync(player1Profile, cancellationToken);
+            }
             
             foreach (var machine in context.ChangeTracker
                          .Entries<Machine>()

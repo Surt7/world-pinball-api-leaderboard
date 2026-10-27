@@ -236,6 +236,80 @@
                                                                }
                                                 }
                                             ]
+                    },
+                    {
+                        "clientId":  "worldpinball-mobile",
+                        "name":  "WorldPinball Mobile App",
+                        "enabled":  true,
+                        "protocol":  "openid-connect",
+                        "publicClient":  true,
+                        "bearerOnly":  false,
+                        "standardFlowEnabled":  true,
+                        "directAccessGrantsEnabled":  true,
+                        "redirectUris":  [
+                                             "worldpinball://login-callback",
+                                             "https://bff.worldpinball.local/*",
+                                             "http://localhost/*"
+                                         ],
+                        "attributes":  {
+                                           "pkce.code.challenge.method":  "S256"
+                                       },
+                        "defaultClientScopes":  [
+                                                    "web-origins",
+                                                    "acr",
+                                                    "roles",
+                                                    "profile",
+                                                    "basic",
+                                                    "email"
+                                                ],
+                        "protocolMappers":  [
+                                                {
+                                                    "protocolMapper":  "oidc-audience-mapper",
+                                                    "protocol":  "openid-connect",
+                                                    "name":  "worldpinball-api-audience",
+                                                    "consentRequired":  false,
+                                                    "config":  {
+                                                                   "introspection.token.claim":  "true",
+                                                                   "id.token.claim":  "false",
+                                                                   "access.token.claim":  "true",
+                                                                   "included.client.audience":  "worldpinball-api"
+                                                               }
+                                                },
+                                                {
+                                                    "protocolMapper":  "oidc-usermodel-realm-role-mapper",
+                                                    "protocol":  "openid-connect",
+                                                    "name":  "realm-roles",
+                                                    "consentRequired":  false,
+                                                    "config":  {
+                                                                   "access.token.claim":  "true",
+                                                                   "userinfo.token.claim":  "true",
+                                                                   "jsonType.label":  "String",
+                                                                   "id.token.claim":  "true",
+                                                                   "multivalued":  "true",
+                                                                   "claim.name":  "roles"
+                                                               }
+                                                }
+                                            ]
                     }
-                ]
+                ],
+    "users":  [
+                  {
+                      "id":  "e2f0d9c1-5b72-4d43-9821-68f764a2b912",
+                      "username":  "player1",
+                      "enabled":  true,
+                      "email":  "player1@worldpinball.local",
+                      "firstName":  "Philippe",
+                      "lastName":  "Tar",
+                      "credentials":  [
+                                          {
+                                              "value":  "Player123!",
+                                              "type":  "password",
+                                              "temporary":  false
+                                          }
+                                      ],
+                      "realmRoles":  [
+                                         "Player"
+                                     ]
+                  }
+              ]
 }
