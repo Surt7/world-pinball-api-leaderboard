@@ -482,6 +482,10 @@ public static class DevelopmentDataSeeder
             .CustomInstantiator(f =>
             {
                 var session = sessions[f.IndexFaker];
+                var assignedUserId = (f.IndexFaker % 4 == 0)
+                    ? "a2c66552-2b07-42cb-9814-0f5abacfd902"
+                    : $"development-user-{(f.IndexFaker % 12) + 1:00}";
+
                 var score = new ScoreEntry(
                     session.SessionId,
                     1,
@@ -491,7 +495,7 @@ public static class DevelopmentDataSeeder
                     session.ModeId,
                     f.Random.Int(10_000, 25_000_000),
                     session.EndedAtUtc ?? now,
-                    $"development-user-{(f.IndexFaker % 12) + 1:00}");
+                    assignedUserId);
 
                 if (f.IndexFaker % 12 == 0)
                 {

@@ -38,7 +38,31 @@ public class UserProfileType : ObjectType<UserProfile>
 
 public class Query
 {
-    // 1. Tab Scores & Leaderboard: capped at 50 items (Top 50 / recent 50)
+    // 1. Tab Scores (Personal scores of the authenticated user)
+    [UseProjection]
+    [UseFiltering]
+    [UseSorting]
+    public IQueryable<ScoreEntry> GetMyScores(
+        [Service] AppDbContext db,
+        [Service] IHttpContextAccessor httpContextAccessor,
+        ClaimsPrincipal? claimsPrincipal)
+    {
+        var principal = claimsPrincipal ?? httpContextAccessor.HttpContext?.User;
+        var sub = principal?.FindFirst("sub")?.Value 
+               ?? principal?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+
+        if (string.IsNullOrEmpty(sub))
+        {
+            return Enumerable.Empty<ScoreEntry>().AsQueryable();
+        }
+
+        return db.ScoreEntries
+            .AsNoTracking()
+            .Where(s => s.UserId == sub)
+            .Take(50);
+    }
+
+    // 2. Tab Leaderboard: global scores capped at 50 items
     [UseProjection]
     [UseFiltering]
     [UseSorting]
