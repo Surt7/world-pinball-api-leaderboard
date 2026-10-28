@@ -2,6 +2,7 @@ using System.Security.Claims;
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using WorldPinball.Domain.Entities;
+using WorldPinball.Domain.Enums;
 using WorldPinball.Infrastructure.Persistence;
 
 namespace WorldPinball.Api.GraphQL;
@@ -37,6 +38,17 @@ public class UserProfileType : ObjectType<UserProfile>
 }
 
 public record ScoreStatsDto(int TotalGames, long BestScore);
+
+// DTO representing active session details for the logged-in player
+public record ActiveSessionDto(
+    Guid SessionId, 
+    string MachineName, 
+    string? ModeName, 
+    int SlotNumber, 
+    string State, 
+    DateTime StartedAtUtc
+);
+
 
 public class Query
 {
@@ -156,4 +168,56 @@ public class Query
 
         return db.Set<UserProfile>().AsNoTracking().Where(p => p.IsProfilePublic).Take(50);
     }
+    
+    
+    
+    
+    public async Task<ActiveSessionDto?> GetMyActiveSessionAsync(
+        [Service] AppDbContext db,
+        [Service] IHttpContextAccessor httpContextAccessor,
+        ClaimsPrincipal? claimsPrincipal)
+    {
+        // 1. Resolve authenticated user ID from JWT token claims
+        var principal = claimsPrincipal ?? httpContextAccessor.HttpContext?.User;
+        var sub = principal?.FindFirst("sub")?.Value 
+                  ?? principal?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        
+        
+        if (string.IsNullOrWhiteSpace(sub) || !Guid.TryParse(sub, out var userId))
+        {
+            return null; // Anonymous users cannot have active game sessions
+        }
+        
+        
+        // 2. Query active session where user is currently registered as a player
+        var entry = await db.GameSessionPlayers
+            .Include(p => p.Session)
+            .ThenInclude(s => s.Machine)
+            .Include(p => p.Session)
+            .ThenInclude(s => s.Mode)
+            .Where(p => p.UserId == userId)
+            .Where(p => p.Session.State != GameSessionState.Ended 
+                        && p.Session.State != GameSessionState.Cancelled)
+            .OrderByDescending(p => p.JoinedAtUtc)
+            .FirstOrDefaultAsync();
+        
+        
+        if (entry == null || entry.Session == null)
+        {
+            return null; // No live active game found
+        }
+        
+        var session = entry.Session;
+        var machineName = session.Machine?.DisplayName ?? "Pinball Machine";
+        var modeName = session.Mode?.Name;
+        return new ActiveSessionDto(
+            session.SessionId,
+            machineName,
+            modeName,
+            entry.SlotNumber,
+            session.State.ToString(),
+            session.StartedAtUtc
+        );
+    }
+    
 }
