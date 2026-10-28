@@ -36,16 +36,49 @@ public class UserProfileType : ObjectType<UserProfile>
     }
 }
 
+public record ScoreStatsDto(int TotalGames, long BestScore);
+
 public class Query
 {
-    // 1. Tab Scores (Personal scores of the authenticated user)
+    // Fast aggregate query: COUNT(*) and MAX(score) computed directly by PostgreSQL
+    public async Task<ScoreStatsDto> GetMyScoreStats(
+        string? modeCode,
+        [Service] AppDbContext db,
+        [Service] IHttpContextAccessor httpContextAccessor,
+        ClaimsPrincipal? claimsPrincipal)
+    {
+        var principal = claimsPrincipal ?? httpContextAccessor.HttpContext?.User;
+        var sub = principal?.FindFirst("sub")?.Value 
+               ?? principal?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+
+        if (string.IsNullOrEmpty(sub))
+        {
+            return new ScoreStatsDto(0, 0);
+        }
+
+        var query = db.ScoreEntries.AsNoTracking().Where(s => s.UserId == sub);
+
+        if (!string.IsNullOrEmpty(modeCode) && modeCode != "all")
+        {
+            query = query.Where(s => s.Mode.Code == modeCode.ToLower());
+        }
+
+        var total = await query.CountAsync();
+        var best = total > 0 ? await query.MaxAsync(s => s.Score) : 0;
+
+        return new ScoreStatsDto(total, best);
+    }
+
+    // 1. Tab Scores (Personal scores of the authenticated user with server-side pagination)
     [UseProjection]
     [UseFiltering]
     [UseSorting]
     public IQueryable<ScoreEntry> GetMyScores(
         [Service] AppDbContext db,
         [Service] IHttpContextAccessor httpContextAccessor,
-        ClaimsPrincipal? claimsPrincipal)
+        ClaimsPrincipal? claimsPrincipal,
+        int skip = 0,
+        int take = 20)
     {
         var principal = claimsPrincipal ?? httpContextAccessor.HttpContext?.User;
         var sub = principal?.FindFirst("sub")?.Value 
@@ -59,15 +92,22 @@ public class Query
         return db.ScoreEntries
             .AsNoTracking()
             .Where(s => s.UserId == sub)
-            .Take(50);
+            .Skip(skip)
+            .Take(take > 50 ? 50 : take);
     }
 
-    // 2. Tab Leaderboard: global scores capped at 50 items
+    // 2. Tab Leaderboard: global scores with pagination
     [UseProjection]
     [UseFiltering]
     [UseSorting]
-    public IQueryable<ScoreEntry> GetScores([Service] AppDbContext db)
-        => db.ScoreEntries.AsNoTracking().Take(50);
+    public IQueryable<ScoreEntry> GetScores(
+        [Service] AppDbContext db,
+        int skip = 0,
+        int take = 50)
+        => db.ScoreEntries
+             .AsNoTracking()
+             .Skip(skip)
+             .Take(take > 100 ? 100 : take);
 
     // 2. Tab Machines (Option A): returns only the active machines of the authenticated user's devices
     // User -> Device (OwnerUserId) -> MachineDevice (IsActive) -> Machine
