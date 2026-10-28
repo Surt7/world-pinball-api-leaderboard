@@ -49,8 +49,18 @@ builder.Services.AddReverseProxy()
     {
         builderContext.AddRequestTransform(async transformContext =>
         {
-            
-            // we have to inject the JWT with YARP
+            // 1. Pass through client Authorization header if provided (e.g. Mobile Bearer token)
+            if (transformContext.HttpContext.Request.Headers.TryGetValue("Authorization", out var authHeader)
+                && !string.IsNullOrWhiteSpace(authHeader))
+            {
+                if (System.Net.Http.Headers.AuthenticationHeaderValue.TryParse(authHeader.ToString(), out var parsedHeader))
+                {
+                    transformContext.ProxyRequest.Headers.Authorization = parsedHeader;
+                }
+                return;
+            }
+
+            // 2. Otherwise extract JWT from BFF cookie session (Web frontend)
             var accessToken = await transformContext.HttpContext.GetTokenAsync("access_token");
             if (!string.IsNullOrEmpty(accessToken))
             {

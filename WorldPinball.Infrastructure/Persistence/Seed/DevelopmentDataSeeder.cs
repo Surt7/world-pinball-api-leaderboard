@@ -90,6 +90,14 @@ public static class DevelopmentDataSeeder
             if (devices.Count == 0)
             {
                 devices = CreateDevices(now);
+                if (devices.Count > 0)
+                {
+                    devices[0].AssignOwner(Guid.Parse("a2c66552-2b07-42cb-9814-0f5abacfd902"));
+                }
+                if (devices.Count > 1)
+                {
+                    devices[1].AssignOwner(Guid.Parse("a2c66552-2b07-42cb-9814-0f5abacfd902"));
+                }
                 await context.Devices.AddRangeAsync(devices, cancellationToken);
             }
 

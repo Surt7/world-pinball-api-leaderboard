@@ -51,6 +51,7 @@ public static class DependencyInjection
             options
                 .UseNpgsql(cs)
                 .UseSnakeCaseNamingConvention()
+                .ConfigureWarnings(w => w.Ignore(Microsoft.EntityFrameworkCore.Diagnostics.RelationalEventId.PendingModelChangesWarning))
                 .AddInterceptors(
                     sp.GetRequiredService<ConvertDomainEventsToOutboxMessagesInterceptor>()
                     ));

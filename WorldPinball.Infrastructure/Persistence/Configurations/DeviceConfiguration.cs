@@ -1,4 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using WorldPinball.Domain.Entities;
 
@@ -15,6 +15,9 @@ namespace WorldPinball.Infrastructure.Persistence.Configurations
 
             e.ToTable("devices");
             e.HasKey(x => x.DeviceId);
+
+            e.Property(x => x.OwnerUserId);
+            e.HasIndex(x => x.OwnerUserId);
 
             e.Property(x => x.SerialPhysical).IsRequired();
 

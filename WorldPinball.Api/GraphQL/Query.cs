@@ -1,3 +1,5 @@
+using System.Security.Claims;
+using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using WorldPinball.Domain.Entities;
 using WorldPinball.Infrastructure.Persistence;
@@ -43,17 +45,51 @@ public class Query
     public IQueryable<ScoreEntry> GetScores([Service] AppDbContext db)
         => db.ScoreEntries.AsNoTracking().Take(50);
 
-    // 2. Tab Machines: capped at 100 items to prevent unbounded dumps
+    // 2. Tab Machines (Option A): returns only the active machines of the authenticated user's devices
+    // User -> Device (OwnerUserId) -> MachineDevice (IsActive) -> Machine
     [UseProjection]
     [UseFiltering]
     [UseSorting]
-    public IQueryable<Machine> GetMachines([Service] AppDbContext db)
-        => db.Machines.AsNoTracking().Take(100);
+    public IQueryable<Machine> GetMachines(
+        [Service] AppDbContext db,
+        [Service] IHttpContextAccessor httpContextAccessor,
+        ClaimsPrincipal? claimsPrincipal)
+    {
+        var principal = claimsPrincipal ?? httpContextAccessor.HttpContext?.User;
+        var sub = principal?.FindFirst("sub")?.Value 
+               ?? principal?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
 
-    // 3. Tab Profil: capped at 50 items
+        if (Guid.TryParse(sub, out var userId))
+        {
+            return db.Devices
+                .AsNoTracking()
+                .Where(d => d.OwnerUserId == userId)
+                .SelectMany(d => d.MachineDevices.Where(md => md.IsActive).Select(md => md.Machine))
+                .Take(50);
+        }
+
+        // When not authenticated, user owns 0 machines
+        return Enumerable.Empty<Machine>().AsQueryable();
+    }
+
+    // 3. Tab Profil: returns the profile of the authenticated user
     [UseProjection]
     [UseFiltering]
     [UseSorting]
-    public IQueryable<UserProfile> GetProfiles([Service] AppDbContext db)
-        => db.Set<UserProfile>().AsNoTracking().Take(50);
+    public IQueryable<UserProfile> GetProfiles(
+        [Service] AppDbContext db,
+        [Service] IHttpContextAccessor httpContextAccessor,
+        ClaimsPrincipal? claimsPrincipal)
+    {
+        var principal = claimsPrincipal ?? httpContextAccessor.HttpContext?.User;
+        var sub = principal?.FindFirst("sub")?.Value 
+               ?? principal?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+
+        if (Guid.TryParse(sub, out var userId))
+        {
+            return db.Set<UserProfile>().AsNoTracking().Where(p => p.UserId == userId);
+        }
+
+        return db.Set<UserProfile>().AsNoTracking().Where(p => p.IsProfilePublic).Take(50);
+    }
 }
