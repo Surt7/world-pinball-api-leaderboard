@@ -233,7 +233,18 @@ try
     
     app.UseForwardedHeadersForReverseProxy();
     
-    app.MapGraphQL(); 
+    // GraphQL endpoint: enable Nitro IDE in dev/staging, disable web tool in production
+    if (app.Environment.IsDevelopment() || app.Environment.IsStaging())
+    {
+        app.MapGraphQL();
+    }
+    else
+    {
+        app.MapGraphQL().WithOptions(opt =>
+        {
+            opt.Tool.Enable = false;
+        });
+    } 
     
     
     if (app.Environment.IsDevelopment() || app.Environment.IsStaging() || app.Configuration.GetValue<bool>("DOTNET_RUN_MIGRATIONS"))
