@@ -1,3 +1,5 @@
+using HotChocolate;
+using HotChocolate.Execution;
 using WorldPinball.Application.Features.Machines.Admin.GetMachineSecurity;
 using Serilog;
 using WorldPinball.Api.Extensions;
@@ -185,7 +187,7 @@ try
     builder.Services.AddScoped<IRevokePermissionFromRoleHandler, RevokePermissionFromRoleHandler>();
 
     //graphQL
-    builder.Services
+    var gqlBuilder = builder.Services
         .AddGraphQLServer()
         .AddQueryType<Query>()
         .AddMutationType<Mutation>()
@@ -194,7 +196,15 @@ try
         .AddType<UserProfileType>()
         .AddProjections()
         .AddFiltering()
-        .AddSorting();
+        .AddSorting()
+
+        .AddMaxExecutionDepthRule(8);
+
+    // Production security: disable schema introspection outside Dev / Staging
+    if (!builder.Environment.IsDevelopment() && !builder.Environment.IsEnvironment("Staging"))
+    {
+        gqlBuilder.DisableIntrospection();
+    }
     
     // Security
     builder.Services.AddScoped<IMachineAuthService, MachineAuthService>();
