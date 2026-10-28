@@ -187,6 +187,10 @@ namespace WorldPinball.Infrastructure.Migrations
                         .HasColumnType("text")
                         .HasColumnName("notes");
 
+                    b.Property<Guid?>("OwnerUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("owner_user_id");
+
                     b.Property<DateTime?>("ProvisionedAtUtc")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("provisioned_at_utc");
@@ -223,6 +227,9 @@ namespace WorldPinball.Infrastructure.Migrations
 
                     b.HasIndex("LastSeenAtUtc")
                         .HasDatabaseName("ix_devices_last_seen_at_utc");
+
+                    b.HasIndex("OwnerUserId")
+                        .HasDatabaseName("ix_devices_owner_user_id");
 
                     b.HasIndex("PublicKeyFingerprint")
                         .HasDatabaseName("ix_devices_public_key_fingerprint");
