@@ -188,6 +188,7 @@ try
     builder.Services
         .AddGraphQLServer()
         .AddQueryType<Query>()
+        .AddMutationType<Mutation>()
         .AddType<ScoreEntryType>()
         .AddType<MachineType>()
         .AddType<UserProfileType>()
