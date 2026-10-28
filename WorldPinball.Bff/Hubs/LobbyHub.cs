@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.SignalR;
+using Microsoft.AspNetCore.SignalR;
 using WorldPinball.Bff.Services;
 namespace WorldPinball.Bff.Hubs;
 
@@ -11,6 +11,10 @@ public sealed class LobbyHub(ILobbyRelayService relayService) : Hub
         if (Guid.TryParse(sessionId, out var parsedId))
         {
             await relayService.EnsureWatchingLobbyAsync(parsedId, CancellationToken.None);
+            if (relayService.GetCurrentLobbies().FirstOrDefault(l => l.SessionId == sessionId) is { } cached)
+            {
+                await Clients.Caller.SendAsync("LobbyStateUpdated", cached);
+            }
         }
     }
 
