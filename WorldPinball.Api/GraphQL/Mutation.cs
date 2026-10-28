@@ -242,4 +242,39 @@ public class Mutation
         return new JoinGameSessionPayload(false, "Unable to join session at this moment.", null, null);
     }
 
+    // ==========================================
+    // 3. Mutation: EndGameSession
+    // ==========================================
+    // Terminate an active game session for participants
+    public async Task<bool> EndGameSessionAsync(
+        Guid sessionId,
+        [Service] AppDbContext db,
+        [Service] ILobbyNotificationService lobbyNotifier,
+        [Service] IHttpContextAccessor httpContextAccessor,
+        ClaimsPrincipal? claimsPrincipal)
+    {
+        var principal = claimsPrincipal ?? httpContextAccessor.HttpContext?.User;
+        var sub = principal?.FindFirst("sub")?.Value 
+                  ?? principal?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (string.IsNullOrWhiteSpace(sub) || !Guid.TryParse(sub, out var userId))
+        {
+            return false;
+        }
+
+        var session = await db.GameSessions
+            .Include(s => s.Players)
+            .FirstOrDefaultAsync(s => s.SessionId == sessionId);
+
+        if (session == null || !session.Players.Any(p => p.UserId == userId))
+        {
+            return false;
+        }
+
+        session.Abort(DateTime.UtcNow);
+        await db.SaveChangesAsync();
+
+        lobbyNotifier.NotifyLobbyUpdated(sessionId);
+        return true;
+    }
+
 }
