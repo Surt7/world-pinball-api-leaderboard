@@ -49,6 +49,7 @@ using WorldPinball.Infrastructure.Services;
 using System.Security.Cryptography.X509Certificates;
 using WorldPinball.Api.GraphQL;
 using WorldPinball.Application.Features.Certificates.Admin.IssueSoftwareCertificate;
+using WorldPinball.Application.Features.Machines.Admin.GetPagedMachines;
 using WorldPinball.Application.Features.Workstations.Admin.CreateBootstrapToken;
 using WorldPinball.Application.Features.Workstations.Public.EnrollWorkstation;
 using Path = System.IO.Path;
@@ -185,6 +186,7 @@ try
     builder.Services.AddScoped<ICreateStreamAccessGrantHandler, CreateStreamAccessGrantHandler>();
     builder.Services.AddScoped<IGrantPermissionToRoleHandler, GrantPermissionToRoleHandler>();
     builder.Services.AddScoped<IRevokePermissionFromRoleHandler, RevokePermissionFromRoleHandler>();
+    builder.Services.AddScoped<IGetPagedMachinesHandler, GetPagedMachinesHandler>();
 
     //graphQL
     var gqlBuilder = builder.Services
@@ -217,6 +219,8 @@ try
     builder.Services.AddScoped<IIssueSoftwareCertificateHandler, IssueSoftwareCertificateHandler>();
     builder.Services.AddScoped<ICreateBootstrapTokenHandler, CreateBootstrapTokenHandler>();
     builder.Services.AddScoped<IEnrollWorkstationHandler, EnrollWorkstationHandler>();
+    
+    
     //Validators
     builder.Services.AddValidatorsFromAssemblyContaining<Program>();
 

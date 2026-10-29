@@ -9,6 +9,7 @@ using FluentValidation;
 using Microsoft.AspNetCore.Authorization;
 using System.Security.Claims;
 using WorldPinball.Api.Contracts.Machine;
+using WorldPinball.Application.DTOs;
 using WorldPinball.Application.Features.Leaderboard.Admin.Dashboard;
 using WorldPinball.Application.Features.Leaderboard.Admin.Dashboard.Dtos;
 using WorldPinball.Application.Features.Leaderboard.Admin.Dashboard.Queries;
@@ -19,6 +20,8 @@ using WorldPinball.Application.Features.Machines.Admin.ReissueToken.Commands;
 using WorldPinball.Application.Features.Machines.Admin.Provision.Dtos;
 using WorldPinball.Application.Features.Machines.Admin.GetAllMachines;
 using WorldPinball.Application.Features.Machines.Admin.GetAllMachines.Queries;
+using WorldPinball.Application.Features.Machines.Admin.GetPagedMachines;
+using WorldPinball.Application.Features.Machines.Admin.GetPagedMachines.Queries;
 
 namespace WorldPinball.Api.Controllers.Admin;
 
@@ -209,10 +212,10 @@ public sealed class AdminMachinesController(
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<MachineSecurityDto>> GetMachineSecurity(
         [FromRoute] Guid machineId,
-        [FromServices] IGetMachineSecurityHandler handler,
+        [FromServices] IGetMachineSecurityHandler machineSecurityHandler,
         CancellationToken ct)
     {
-        var result = await handler.HandleAsync(new GetMachineSecurityQuery(machineId), ct);
+        var result = await machineSecurityHandler.HandleAsync(new GetMachineSecurityQuery(machineId), ct);
         return result switch
         {
             GetMachineSecurityResult.Success success => Ok(success.Security),
@@ -220,4 +223,35 @@ public sealed class AdminMachinesController(
             _ => throw new InvalidOperationException($"Unsupported result: {result.GetType().Name}")
         };
     }
+    
+    
+    
+    [HttpGet("paged")]
+    [Authorize(Roles = "Admin")]
+    [EndpointSummary("Retrieves machines with keyset pagination")]
+    [ProducesResponseType(typeof(PagedResponse<MachineRowDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<PagedResponse<MachineRowDto>>> GetPagedMachines(
+        [FromServices] IGetPagedMachinesHandler getPagedMachinesHandler,
+        [FromQuery] int pageSize = 10,
+        [FromQuery] Guid? lastMachineId = null,
+        [FromQuery] int? page = null,
+        [FromQuery] string? search = null,
+        CancellationToken ct = default)
+    {
+        // Enforce safe page size limits (Barrier 2)
+        int safeLimit = Math.Clamp(pageSize, 1, 50);
+        var query = new GetPagedMachinesQuery(safeLimit, lastMachineId, page, search);
+        var result = await getPagedMachinesHandler.HandleAsync(query, ct);
+        return result switch
+        {
+            GetPagedMachinesResult.Success success => Ok(success.Page),
+            GetPagedMachinesResult.NotFound => NotFound(new { message = "No machines found." }),
+            _ => throw new InvalidOperationException($"Unsupported result: {result.GetType().Name}")
+        };
+    }
+    
+    
+    
+    
 }
