@@ -204,11 +204,11 @@ public sealed class MachineReadRepository : IMachineReadRepository
         // Hybrid pagination:
         // 1. If lastMachineId provided -> Keyset seek (fast sequential navigation)
         // 2. Else if pageNumber provided -> Offset skip (direct jump to arbitrary page)
-        if (lastMachineId.HasValue)
+        if (lastMachineId is { } lastId)
         {
-            query = query.Where(m => m.MachineId.CompareTo(lastMachineId.Value) > 0);
+            query = query.Where(m => m.MachineId.CompareTo(lastId) > 0);
         }
-        else if (pageNumber.HasValue && pageNumber.Value > 1)
+        else if (pageNumber is > 1)
         {
             query = query.Skip((pageNumber.Value - 1) * pageSize);
         }
