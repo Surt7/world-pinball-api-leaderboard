@@ -104,6 +104,8 @@ public class Query
         return db.ScoreEntries
             .AsNoTracking()
             .Where(s => s.UserId == sub)
+            .OrderByDescending(s => s.AchievedAtUtc)
+            .ThenByDescending(s => s.Score)
             .Skip(skip)
             .Take(take > 50 ? 50 : take);
     }
@@ -118,6 +120,8 @@ public class Query
         int take = 50)
         => db.ScoreEntries
              .AsNoTracking()
+             .OrderByDescending(s => s.Score)
+             .ThenByDescending(s => s.AchievedAtUtc)
              .Skip(skip)
              .Take(take > 100 ? 100 : take);
 
@@ -141,6 +145,8 @@ public class Query
                 .AsNoTracking()
                 .Where(d => d.OwnerUserId == userId)
                 .SelectMany(d => d.MachineDevices.Where(md => md.IsActive).Select(md => md.Machine))
+                .OrderBy(m => m.DisplayName)
+                .ThenBy(m => m.MachineId)
                 .Take(50);
         }
 
@@ -163,10 +169,17 @@ public class Query
 
         if (Guid.TryParse(sub, out var userId))
         {
-            return db.Set<UserProfile>().AsNoTracking().Where(p => p.UserId == userId);
+            return db.Set<UserProfile>()
+                .AsNoTracking()
+                .Where(p => p.UserId == userId);
         }
 
-        return db.Set<UserProfile>().AsNoTracking().Where(p => p.IsProfilePublic).Take(50);
+        return db.Set<UserProfile>()
+            .AsNoTracking()
+            .Where(p => p.IsProfilePublic)
+            .OrderBy(p => p.DisplayName)
+            .ThenBy(p => p.UserId)
+            .Take(50);
     }
     
     

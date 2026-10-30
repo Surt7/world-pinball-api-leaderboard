@@ -10,6 +10,7 @@ using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authentication.OpenIdConnect;
 using Microsoft.IdentityModel.Protocols.OpenIdConnect;
 using StackExchange.Redis;
+using WorldPinball.Bff.Logging;
 
 public static class SecurityAuthExtensions
 {
@@ -25,14 +26,12 @@ public static class SecurityAuthExtensions
             options.HttpsPort = 7285;
         });
         
-        
         services.AddHsts(options =>
         {
             options.Preload = true;
             options.IncludeSubDomains = true;
             options.MaxAge = TimeSpan.FromDays(730); // 2 years
         });
-        
         
         services.AddCors(options =>
         {
@@ -50,33 +49,35 @@ public static class SecurityAuthExtensions
         
         var dataProtection = services.AddDataProtection()
             .SetApplicationName("worldpinball");
-        
-        if (env.IsDevelopment())
+
+        // Resolve Redis connection string from config
+        var redisHost = config["Redis:Host"] ?? config["Redis__Host"];
+        var redisPassword = config["Redis:Password"] ?? config["Redis__Password"];
+        var redisConnectionString = config.GetConnectionString("Redis")
+            ?? config["Redis:ConnectionString"]
+            ?? (!string.IsNullOrWhiteSpace(redisHost) 
+                ? (string.IsNullOrWhiteSpace(redisPassword) ? redisHost : $"{redisHost},password={redisPassword}")
+                : null);
+
+        if (!string.IsNullOrWhiteSpace(redisConnectionString))
+        {
+            var redis = ConnectionMultiplexer.Connect(redisConnectionString);
+            dataProtection.PersistKeysToStackExchangeRedis(redis, "DataProtection-Keys");
+        }
+        else
         {
             dataProtection.PersistKeysToFileSystem(new DirectoryInfo(
                 Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
                     ".worldpinball-keys")));
         }
-        else
+
+        var keyVaultUri = config["KeyVault:VaultUri"] ?? config["KEYVAULT_URI"];
+        if (!string.IsNullOrWhiteSpace(keyVaultUri))
         {
-            var redisConnectionString = config.GetConnectionString("Redis")
-                ?? config["Redis:ConnectionString"];
-
-            if (!string.IsNullOrWhiteSpace(redisConnectionString))
-            {
-                var redis = ConnectionMultiplexer.Connect(redisConnectionString);
-                dataProtection.PersistKeysToStackExchangeRedis(redis, "DataProtection-Keys");
-            }
-
-            var keyVaultUri = config["KeyVault:VaultUri"] ?? config["KEYVAULT_URI"];
-            
-            if (!string.IsNullOrWhiteSpace(keyVaultUri))
-            {
-                var keyUri = new Uri(new Uri(keyVaultUri), "keys/dataprotection-key");
-                dataProtection.ProtectKeysWithAzureKeyVault(
-                    keyUri,
-                    new DefaultAzureCredential());
-            }
+            var keyUri = new Uri(new Uri(keyVaultUri), "keys/dataprotection-key");
+            dataProtection.ProtectKeysWithAzureKeyVault(
+                keyUri,
+                new DefaultAzureCredential());
         }
 
         services.AddAuthentication(options =>
@@ -93,7 +94,6 @@ public static class SecurityAuthExtensions
                 options.ExpireTimeSpan = TimeSpan.FromHours(8);
                 options.SlidingExpiration = true;
                 options.Cookie.IsEssential = true;
-                
             })
             .AddOpenIdConnect(OpenIdConnectDefaults.AuthenticationScheme, options =>
             {
@@ -124,12 +124,41 @@ public static class SecurityAuthExtensions
                 options.CorrelationCookie.SameSite = SameSiteMode.None;
                 options.CorrelationCookie.SecurePolicy = CookieSecurePolicy.Always;
                 options.NonceCookie.SameSite = SameSiteMode.Unspecified;
-                
-                
-            });
-        ;
-        services.AddAuthorization();
 
+                options.Events = new OpenIdConnectEvents
+                {
+                    OnAuthenticationFailed = context =>
+                    {
+                        var logger = context.HttpContext.RequestServices
+                            .GetRequiredService<ILoggerFactory>()
+                            .CreateLogger("WorldPinball.Bff.Authentication");
+
+                        logger.LogError(
+                            BffLogEvents.OidcAuthenticationFailed,
+                            context.Exception,
+                            "OIDC Authentication failed for client {ClientId}",
+                            context.Options.ClientId);
+
+                        return Task.CompletedTask;
+                    },
+                    OnRemoteFailure = context =>
+                    {
+                        var logger = context.HttpContext.RequestServices
+                            .GetRequiredService<ILoggerFactory>()
+                            .CreateLogger("WorldPinball.Bff.Authentication");
+
+                        logger.LogWarning(
+                            BffLogEvents.OidcRemoteFailure,
+                            context.Failure,
+                            "OIDC Remote authentication failure: {FailureMessage}",
+                            context.Failure?.Message);
+
+                        return Task.CompletedTask;
+                    }
+                };
+            });
+
+        services.AddAuthorization();
 
         services.AddAntiforgery(options =>
         {
@@ -142,7 +171,6 @@ public static class SecurityAuthExtensions
             options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
             options.Cookie.SameSite = SameSiteMode.Strict;
         });
-
 
         return services;
     }

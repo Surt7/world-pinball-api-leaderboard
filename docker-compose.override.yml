@@ -91,6 +91,8 @@ services:
       OTEL_EXPORTER_OTLP_ENDPOINT: "http://worldpinball-otel-collector:4317"
       OTEL_SERVICE_NAME: "WorldPinball.Bff"
       Seq__ServerUrl: "http://seq:5341"
+      Redis__Host: "redis:6379"
+      Redis__Password: "${REDIS_PASSWORD}"
     volumes:
       - ./docker/nginx/certs/dev-rootCA.pem:/app/certs/dev-rootCA.pem:ro
     depends_on:

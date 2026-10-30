@@ -3,9 +3,12 @@ using Microsoft.AspNetCore.Http.Timeouts;
 using WorldPinball.Bff.Extensions;
 using WorldPinball.Bff.Endpoints;
 using WorldPinball.Bff.Hubs;
+using WorldPinball.Bff.Logging;
 using WorldPinball.Bff.Services;
 using WorldPinball.Protos.V1.GameSessions;
+using Yarp.ReverseProxy.Forwarder;
 using Yarp.ReverseProxy.Transforms;
+using Serilog;
 using ServiceDefaults;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -14,6 +17,9 @@ builder.WebHost.ConfigureKestrel(options =>
 {
     options.AddServerHeader = false;
 });
+
+// Configure Serilog with Seq and OpenTelemetry
+builder.AddBffLogging();
 
 // Configure cancellation token source 5 sec timeout
 builder.Services.AddRequestTimeouts(options => {
@@ -82,6 +88,8 @@ builder.Services.AddGrpcClient<GameSessionService.GameSessionServiceClient>(opti
 // -------------------- RESOLVE APP USE --------------------
 var app = builder.Build();
 
+app.UseSerilogRequestLogging();
+
 app.UseSecurityHeaders();
 
 if (!app.Environment.IsDevelopment())
@@ -102,6 +110,26 @@ app.UseRateLimiter();
 app.UseAuthentication();
 app.UseAuthorization();
 app.UseAntiforgery();
+
+// Middleware to catch and log YARP Reverse Proxy forwarding errors with EventId
+app.Use(async (context, next) =>
+{
+    await next();
+
+    var errorFeature = context.Features.Get<IForwarderErrorFeature>();
+    if (errorFeature != null)
+    {
+        var logger = context.RequestServices.GetRequiredService<ILoggerFactory>().CreateLogger("WorldPinball.Bff.Proxy");
+        logger.LogError(
+            BffLogEvents.ProxyForwardError,
+            errorFeature.Exception,
+            "Reverse proxy forward error: {ProxyError} for {Method} {Path} -> HTTP {StatusCode}",
+            errorFeature.Error,
+            context.Request.Method,
+            context.Request.Path,
+            context.Response.StatusCode);
+    }
+});
 
 // Health check endpoint for Docker / K8s
 app.MapHealthChecks("/health");
