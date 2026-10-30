@@ -1,4 +1,3 @@
-
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Http.Timeouts;
 using WorldPinball.Bff.Extensions;
@@ -15,18 +14,18 @@ builder.WebHost.ConfigureKestrel(options =>
 {
     options.AddServerHeader = false;
 });
-// I Configured cancellation token source 5 sec timeout
+
+// Configure cancellation token source 5 sec timeout
 builder.Services.AddRequestTimeouts(options => {
     options.DefaultPolicy = new RequestTimeoutPolicy { 
         Timeout = TimeSpan.FromSeconds(5) 
     };
 });
 
-/*These two references help me to configure security
- *ASP.NET Core Security by Christian Wenz Manning edition
- *https://cheatsheetseries.owasp.org/cheatsheets/HTTP_Headers_Cheat_Sheet.html
+/* Security configuration references:
+ * ASP.NET Core Security by Christian Wenz Manning edition
+ * https://cheatsheetseries.owasp.org/cheatsheets/HTTP_Headers_Cheat_Sheet.html
  */
-
 builder.Services.AddBffSecurity(builder.Configuration, builder.Environment); 
 builder.Services.AddBffRateLimiting();
 builder.Services.AddHealthChecks()
@@ -40,7 +39,6 @@ builder.Services.AddHealthChecks()
         ["live"]);
 
 // HttpClient resilience is handled per-client to preserve long-lived gRPC streams
-
 builder.AddObservability();
 
 builder.Services.AddReverseProxy()
@@ -69,19 +67,19 @@ builder.Services.AddReverseProxy()
             }
         });
     });
-    ;
 
-    builder.Services.AddSignalR();
-    builder.Services.AddSingleton<ILobbyRelayService, LobbyRelayService>();
-    builder.Services.AddGrpcClient<GameSessionService.GameSessionServiceClient>(options =>
-        {
-            var coreApiUrl = builder.Configuration["Services:CoreApi:Https"] 
-                             ?? builder.Configuration["ReverseProxy:Clusters:core-api-cluster:Destinations:destination1:Address"]
-                             ?? "https://localhost:7010";
-            options.Address = new Uri(coreApiUrl);
-        });
+builder.Services.AddSignalR();
+builder.Services.AddSingleton<ILobbyRelayService, LobbyRelayService>();
+builder.Services.AddHttpClient<IKeycloakAdminService, KeycloakAdminService>();
+builder.Services.AddGrpcClient<GameSessionService.GameSessionServiceClient>(options =>
+{
+    var coreApiUrl = builder.Configuration["Services:CoreApi:Https"] 
+                     ?? builder.Configuration["ReverseProxy:Clusters:core-api-cluster:Destinations:destination1:Address"]
+                     ?? "https://localhost:7010";
+    options.Address = new Uri(coreApiUrl);
+});
+
 // -------------------- RESOLVE APP USE --------------------
-    
 var app = builder.Build();
 
 app.UseSecurityHeaders();
@@ -106,7 +104,6 @@ app.UseAuthorization();
 app.UseAntiforgery();
 
 // Health check endpoint for Docker / K8s
-
 app.MapHealthChecks("/health");
 app.MapAuthEndpoints();
 app.MapHub<LobbyHub>("/hubs/lobby");
