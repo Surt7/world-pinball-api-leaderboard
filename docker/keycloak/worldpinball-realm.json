@@ -291,25 +291,5 @@
                                                 }
                                             ]
                     }
-                ],
-    "users":  [
-                  {
-                      "id":  "e2f0d9c1-5b72-4d43-9821-68f764a2b912",
-                      "username":  "player1",
-                      "enabled":  true,
-                      "email":  "player1@worldpinball.local",
-                      "firstName":  "Philippe",
-                      "lastName":  "Tar",
-                      "credentials":  [
-                                          {
-                                              "value":  "Player123!",
-                                              "type":  "password",
-                                              "temporary":  false
-                                          }
-                                      ],
-                      "realmRoles":  [
-                                         "Player"
-                                     ]
-                  }
-              ]
+                ]
 }
