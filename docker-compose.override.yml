@@ -12,8 +12,6 @@ services:
       - ./docker/nginx/certs:/etc/nginx/certs:ro
     extra_hosts:
       - "host.docker.internal:host-gateway"
-      - "bff:127.0.0.1"
-      - "api:127.0.0.1"
     depends_on:
       keycloak:
         condition: service_healthy
