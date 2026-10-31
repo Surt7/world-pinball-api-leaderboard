@@ -29,6 +29,7 @@ namespace WorldPinball.Api.Controllers.Admin;
 [Authorize]
 [ApiController]
 [Route("api/v1/admin/machines")]
+[Route("api/v2/admin/machines")]
 public sealed class AdminMachinesController(
     IProvisionMachineHandler handler,
     IReissueEnrollmentTokenHandler reissueHandler,

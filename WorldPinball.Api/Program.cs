@@ -94,6 +94,15 @@ try
                 listenOptions.UseHttps();
             }
         });
+
+        if (builder.Environment.IsDevelopment() || builder.Environment.IsStaging())
+        {
+            // Internal HTTP port for Aspire orchestrator, BFF, and local tooling
+            options.ListenAnyIP(5085, listenOptions =>
+            {
+                listenOptions.Protocols = Microsoft.AspNetCore.Server.Kestrel.Core.HttpProtocols.Http1AndHttp2;
+            });
+        }
         
  
         // Allow optional client certificates (mTLS support for enrolled pinball machines)
