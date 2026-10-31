@@ -51,6 +51,7 @@ services:
     environment:
       - ASPNETCORE_ENVIRONMENT=Production
       - ASPNETCORE_FORWARDEDHEADERS_ENABLED=true
+      - ASPNETCORE_URLS=https://+:8443
       - DOTNET_RUN_MIGRATIONS=true
       - ConnectionStrings__DefaultConnection=Host=db;Port=5432;Database=worldpinball;Username=postgres;Password=${POSTGRES_PASSWORD}
       - ConnectionStrings__Redis=redis:6379,password=${REDIS_PASSWORD}

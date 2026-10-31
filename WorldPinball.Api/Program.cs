@@ -80,34 +80,19 @@ try
             keyPath = Path.Combine(builder.Environment.ContentRootPath, "..", "docker", "nginx", "certs", "worldpinball.local.key");
         }
         
-        // Production-grade HTTPS port with ALPN (handles both HTTP/1.1 and HTTP/2 simultaneously)
-        options.ListenAnyIP(8443, listenOptions =>
+        // Configure protocols for all endpoints (HTTP/1.1 and HTTP/2)
+        options.ConfigureEndpointDefaults(listenOptions =>
         {
             listenOptions.Protocols = Microsoft.AspNetCore.Server.Kestrel.Core.HttpProtocols.Http1AndHttp2;
-            if (File.Exists(certPath) && File.Exists(keyPath))
-            {
-                var serverCertificate = X509Certificate2.CreateFromPemFile(certPath, keyPath);
-                listenOptions.UseHttps(serverCertificate);
-            }
-            else
-            {
-                listenOptions.UseHttps();
-            }
         });
 
-        if (builder.Environment.IsDevelopment() || builder.Environment.IsStaging())
-        {
-            // Internal HTTP port for Aspire orchestrator, BFF, and local tooling
-            options.ListenAnyIP(5085, listenOptions =>
-            {
-                listenOptions.Protocols = Microsoft.AspNetCore.Server.Kestrel.Core.HttpProtocols.Http1AndHttp2;
-            });
-        }
-        
- 
-        // Allow optional client certificates (mTLS support for enrolled pinball machines)
+        // Configure default HTTPS settings (certificate, ALPN, optional client mTLS)
         options.ConfigureHttpsDefaults(httpsOptions =>
         {
+            if (File.Exists(certPath) && File.Exists(keyPath))
+            {
+                httpsOptions.ServerCertificate = X509Certificate2.CreateFromPemFile(certPath, keyPath);
+            }
             httpsOptions.ClientCertificateMode = ClientCertificateMode.AllowCertificate;
             httpsOptions.ClientCertificateValidation = (certificate, chain, sslPolicyErrors) => true;
         });

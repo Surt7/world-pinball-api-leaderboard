@@ -38,6 +38,7 @@ services:
     environment:
       ASPNETCORE_ENVIRONMENT: "Development"
       ASPNETCORE_FORWARDEDHEADERS_ENABLED: "true"
+      ASPNETCORE_URLS: "https://+:8443"
       Kafka__BootstrapServers: "kafka:29092"
       ConnectionStrings__DefaultConnection: "Host=db;Port=5432;Database=worldpinball;Username=postgres;Password=${POSTGRES_PASSWORD}"
       Keycloak__Authority: "https://auth.worldpinball.local/realms/worldpinball"
