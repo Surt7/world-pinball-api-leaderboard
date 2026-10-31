@@ -27,6 +27,7 @@ services:
       - ASPNETCORE_FORWARDEDHEADERS_ENABLED=true
       - Services__CoreApi__Https=https://api:8443
       - ReverseProxy__Clusters__core-api-cluster__Destinations__destination1__Address=https://api:8443
+      - ConnectionStrings__Redis=redis:6379,password=${REDIS_PASSWORD}
       - Keycloak__Authority=https://auth.${DOMAIN:-localhost}/realms/worldpinball
       - Keycloak__ClientId=worldpinball-bff
       - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318
@@ -35,6 +36,7 @@ services:
       - ./docker/nginx/certs/dev-rootCA.pem:/app/certs/rootCA.pem:ro
     depends_on:
       - api
+      - redis
     restart: unless-stopped
     networks:
       - worldpinball-network
@@ -194,6 +196,12 @@ services:
     depends_on:
       keycloak-db:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "exec 3<>/dev/tcp/127.0.0.1/9000; printf 'GET /health/ready HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n' >&3; grep -q '200 OK' <&3"]
+      interval: 15s
+      timeout: 5s
+      retries: 15
+      start_period: 30s
     restart: unless-stopped
     networks:
       - worldpinball-network
