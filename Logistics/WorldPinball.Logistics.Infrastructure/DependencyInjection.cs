@@ -34,7 +34,9 @@ public static class DependencyInjection
         services.AddSingleton<ILogisticsOutboxChannel, LogisticsOutboxChannel>();
         services.AddScoped<ILogisticsOutboxProcessor, LogisticsOutboxProcessor>();
         services.AddHostedService<LogisticsOutboxBackgroundService>();
-
+        services.AddSingleton<ILogisticsShipmentEventProcessor, LogisticsShipmentEventProcessor>();
+        services.AddHostedService<RabbitMqLogisticsConsumerBackgroundService>();
+        
         // RabbitMQ
         services.Configure<RabbitMqOptions>(configuration.GetSection(RabbitMqOptions.SectionName));
         services.AddSingleton<ILogisticsEventPublisher, RabbitMqLogisticsEventPublisher>();

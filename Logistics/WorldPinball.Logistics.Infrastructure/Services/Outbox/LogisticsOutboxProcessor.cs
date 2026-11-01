@@ -39,7 +39,7 @@ public class LogisticsOutboxProcessor(
             {
                 
                 await publisher.PublishAsync(
-                    "logistics-shipments",
+                    $"logistics.shipments.{message.Type}",
                     message.Id.ToString(),
                     message.Content,
                     ct);

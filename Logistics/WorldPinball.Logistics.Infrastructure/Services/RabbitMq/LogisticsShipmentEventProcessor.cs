@@ -27,6 +27,12 @@ public class LogisticsShipmentEventProcessor(
                 case nameof(ShipmentCancelledDomainEvent):
                     HandleCancelled(jsonPayload);
                     break;
+                case nameof(ShipmentDeliveredDomainEvent):
+                    HandleDelivered(jsonPayload);
+                    break;
+                case nameof(ShipmentDispatchedDomainEvent):
+                    HandleDispatched(jsonPayload);
+                    break;
                 default:
                     LogUnknown(eventType);
                     break;
@@ -57,6 +63,23 @@ public class LogisticsShipmentEventProcessor(
         if (cancelled is null) return false;
         logger.LogInformation("Shipment cancelled event received for Order {OrderId}, Reason: {Reason}", 
             cancelled.OrderId, cancelled.Reason);
+        return true;
+    }
+
+    private bool HandleDispatched(string jsonPayload)
+    {
+        var dispatched = JsonSerializer.Deserialize<ShipmentDispatchedDomainEvent>(jsonPayload);
+        if (dispatched is null) return false;
+        logger.LogInformation("Shipment dispatched event received for Order {OrderId}, Tracking: {TrackingNumber}",
+            dispatched.OrderId, dispatched.TrackingNumber);
+        return true;
+    }
+
+    private bool HandleDelivered(string jsonPayload)
+    {
+        var delivered = JsonSerializer.Deserialize<ShipmentDeliveredDomainEvent>(jsonPayload);
+        if (delivered is null) return false;
+        logger.LogInformation("Shipment delivered event received for Order {OrderId}", delivered.OrderId);
         return true;
     }
     
