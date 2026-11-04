@@ -63,7 +63,7 @@ public class AdminMachinesControllerTests
 
         // create controller
         var reissueHandler = Substitute.For<IReissueEnrollmentTokenHandler>();
-        var controller = new AdminMachinesController(handler, reissueHandler, validator);
+        var controller = new AdminMachinesController(handler, reissueHandler);
         controller.ControllerContext = new ControllerContext
         {
             HttpContext = new DefaultHttpContext
@@ -114,8 +114,7 @@ public class AdminMachinesControllerTests
         
         var controller = new AdminMachinesController(
             Substitute.For<IProvisionMachineHandler>(),
-            Substitute.For<IReissueEnrollmentTokenHandler>(),
-            Substitute.For<IValidator<ProvisionMachineRequest>>());
+            Substitute.For<IReissueEnrollmentTokenHandler>());
         var handler = Substitute.For<IGetMachineDashboardHandler>();
         
         handler.HandleAsync(
@@ -136,8 +135,7 @@ public class AdminMachinesControllerTests
         
         var controller = new AdminMachinesController(
             Substitute.For<IProvisionMachineHandler>(),
-            Substitute.For<IReissueEnrollmentTokenHandler>(),
-            Substitute.For<IValidator<ProvisionMachineRequest>>());
+            Substitute.For<IReissueEnrollmentTokenHandler>());
         var handler = Substitute.For<IGetMachineDashboardHandler>();
         
         handler.HandleAsync(
@@ -156,8 +154,7 @@ public class AdminMachinesControllerTests
         // Arrange
         var controller = new AdminMachinesController(
             Substitute.For<IProvisionMachineHandler>(),
-            Substitute.For<IReissueEnrollmentTokenHandler>(),
-            Substitute.For<IValidator<ProvisionMachineRequest>>());
+            Substitute.For<IReissueEnrollmentTokenHandler>());
 
         var handler = Substitute.For<IGetAllMachinesHandler>();
         var machines = new List<MachineRowDto>
@@ -192,8 +189,7 @@ public class AdminMachinesControllerTests
         // Arrange
         var controller = new AdminMachinesController(
             Substitute.For<IProvisionMachineHandler>(),
-            Substitute.For<IReissueEnrollmentTokenHandler>(),
-            Substitute.For<IValidator<ProvisionMachineRequest>>());
+            Substitute.For<IReissueEnrollmentTokenHandler>());
 
         var handler = Substitute.For<IGetAllMachinesHandler>();
         handler.HandleAsync(Arg.Any<GetAllMachinesQuery>(), Arg.Any<CancellationToken>())
@@ -234,8 +230,7 @@ public class AdminMachinesControllerTests
 
         var controller = new AdminMachinesController(
             Substitute.For<IProvisionMachineHandler>(),
-            Substitute.For<IReissueEnrollmentTokenHandler>(),
-            Substitute.For<IValidator<ProvisionMachineRequest>>());
+            Substitute.For<IReissueEnrollmentTokenHandler>());
 
         var handler = Substitute.For<IGetMachineSecurityHandler>();
         handler.HandleAsync(
@@ -259,8 +254,7 @@ public class AdminMachinesControllerTests
 
         var controller = new AdminMachinesController(
             Substitute.For<IProvisionMachineHandler>(),
-            Substitute.For<IReissueEnrollmentTokenHandler>(),
-            Substitute.For<IValidator<ProvisionMachineRequest>>());
+            Substitute.For<IReissueEnrollmentTokenHandler>());
 
         var handler = Substitute.For<IGetMachineSecurityHandler>();
         handler.HandleAsync(
@@ -281,8 +275,7 @@ public class AdminMachinesControllerTests
         // Arrange
         var controller = new AdminMachinesController(
             Substitute.For<IProvisionMachineHandler>(),
-            Substitute.For<IReissueEnrollmentTokenHandler>(),
-            Substitute.For<IValidator<ProvisionMachineRequest>>());
+            Substitute.For<IReissueEnrollmentTokenHandler>());
 
         var pagedHandler = Substitute.For<IGetPagedMachinesHandler>();
         var pageResponse = new PagedResponse<MachineRowDto>
@@ -327,8 +320,7 @@ public class AdminMachinesControllerTests
         // Arrange
         var controller = new AdminMachinesController(
             Substitute.For<IProvisionMachineHandler>(),
-            Substitute.For<IReissueEnrollmentTokenHandler>(),
-            Substitute.For<IValidator<ProvisionMachineRequest>>());
+            Substitute.For<IReissueEnrollmentTokenHandler>());
 
         var pagedHandler = Substitute.For<IGetPagedMachinesHandler>();
         pagedHandler.HandleAsync(
@@ -355,8 +347,7 @@ public class AdminMachinesControllerTests
         // Arrange
         var controller = new AdminMachinesController(
             Substitute.For<IProvisionMachineHandler>(),
-            Substitute.For<IReissueEnrollmentTokenHandler>(),
-            Substitute.For<IValidator<ProvisionMachineRequest>>());
+            Substitute.For<IReissueEnrollmentTokenHandler>());
 
         var pagedHandler = Substitute.For<IGetPagedMachinesHandler>();
         pagedHandler.HandleAsync(

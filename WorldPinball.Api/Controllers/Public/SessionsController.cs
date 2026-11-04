@@ -1,5 +1,4 @@
 using System.Text.Json;
-using FluentValidation;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using WorldPinball.Api.Contracts.Sessions;
@@ -36,9 +35,6 @@ public class SessionsController(
     IAddPlayerHandler addPlayerHandler,
     IKickPlayerHandler kickPlayerHandler,
     ILaunchSessionHandler launchSessionHandler,
-    IValidator<CreateGameSessionRequest> requestValidator,
-    IValidator<SubmitScoreRequest> reqValidator,
-    IValidator<AddPlayerRequest> addPlayerValidator,
     ILobbyNotificationService lobbyNotifier,
     IGameSessionWriteRepository sessionRepository,
     IAuthorizationService authorization
@@ -68,18 +64,6 @@ public class SessionsController(
         [FromHeader(Name = "X-Signature")] string? signature,
         CancellationToken ct)
     {
-        var validationResult = await requestValidator.ValidateAsync(request, ct);
-        if (!validationResult.IsValid)
-        {
-            foreach (var failure in validationResult.Errors)
-            {
-                ModelState.AddModelError(
-                    failure.PropertyName,
-                    failure.ErrorMessage);
-            }
-
-            return ValidationProblem(ModelState);
-        }
 
         var context = new MachineAuthContext(
             DeviceIdHeader: deviceId,
@@ -165,15 +149,6 @@ public class SessionsController(
         [FromBody] AddPlayerRequest request,
         CancellationToken ct)
     {
-        var validationResult = await addPlayerValidator.ValidateAsync(request, ct);
-        if (!validationResult.IsValid)
-        {
-            foreach (var failure in validationResult.Errors)
-            {
-                ModelState.AddModelError(failure.PropertyName, failure.ErrorMessage);
-            }
-            return ValidationProblem(ModelState);
-        }
 
         var command = new AddPlayerCommand(
             sessionId,
@@ -291,18 +266,6 @@ public class SessionsController(
         [FromBody] SubmitScoreRequest request,
         CancellationToken ct)
     {
-        var validationResult = await reqValidator.ValidateAsync(request, ct);
-        if (!validationResult.IsValid)
-        {
-            foreach (var failure in validationResult.Errors)
-            {
-                ModelState.AddModelError(
-                    failure.PropertyName,
-                    failure.ErrorMessage);
-            }
-
-            return ValidationProblem(ModelState);
-        }
 
         var command = new SubmitScoreCommand(
             sessionId,

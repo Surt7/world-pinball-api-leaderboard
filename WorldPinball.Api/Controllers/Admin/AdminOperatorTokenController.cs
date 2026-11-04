@@ -1,5 +1,4 @@
-﻿using System.Security.Claims;
-using FluentValidation;
+using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using WorldPinball.Api.Contracts.Machine;
@@ -12,8 +11,7 @@ namespace WorldPinball.Api.Controllers.Admin;
 [ApiController]
 [Route("api/v1/admin/operator-tokens")]
 public sealed class AdminOperatorTokensController(
-    ICreateOperatorTokenHandler handler,
-    IValidator<CreateOperatorTokenRequest> validator
+    ICreateOperatorTokenHandler handler
 ) : ControllerBase
 {
 
@@ -27,17 +25,6 @@ public sealed class AdminOperatorTokensController(
         CancellationToken ct)
     {
         var issuedByUser = User.FindFirstValue("sub") ?? "admin";
-        
-        
-        var validationResult = await validator.ValidateAsync(request, ct);
-        if (!validationResult.IsValid)
-        {
-            foreach (var failure in validationResult.Errors)
-            {
-                ModelState.AddModelError(failure.PropertyName, failure.ErrorMessage);
-            }
-            return ValidationProblem(ModelState);
-        }
         
         var command = new CreateOperatorTokenCommand(
             request.Name,

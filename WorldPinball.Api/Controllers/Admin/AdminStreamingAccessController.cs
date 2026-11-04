@@ -1,5 +1,4 @@
 using System.Security.Claims;
-using FluentValidation;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using WorldPinball.Api.Contracts.StreamingAccess;
@@ -19,9 +18,7 @@ namespace WorldPinball.Api.Controllers.Admin;
 public sealed class AdminStreamingAccessController(
     IGetStreamAccessGrantsHandler getGrantsHandler,
     ICreateStreamAccessGrantHandler createGrantHandler,
-    IRevokeStreamAccessGrantHandler revokeGrantHandler,
-    IValidator<CreateStreamAccessGrantRequest> createValidator,
-    IValidator<RevokeStreamAccessGrantRequest> revokeValidator
+    IRevokeStreamAccessGrantHandler revokeGrantHandler
 ) : ControllerBase
 {
     [HttpGet("grants")]
@@ -49,15 +46,6 @@ public sealed class AdminStreamingAccessController(
         [FromBody] CreateStreamAccessGrantRequest request,
         CancellationToken ct)
     {
-        var validationResult = await createValidator.ValidateAsync(request, ct);
-        if (!validationResult.IsValid)
-        {
-            foreach (var failure in validationResult.Errors)
-            {
-                ModelState.AddModelError(failure.PropertyName, failure.ErrorMessage);
-            }
-            return ValidationProblem(ModelState);
-        }
 
         var sub = User.FindFirstValue("sub") ?? User.FindFirstValue(ClaimTypes.NameIdentifier);
         Guid? grantedByUserId = Guid.TryParse(sub, out var adminGuid) ? adminGuid : null;
@@ -106,15 +94,6 @@ public sealed class AdminStreamingAccessController(
         [FromBody] RevokeStreamAccessGrantRequest request,
         CancellationToken ct)
     {
-        var validationResult = await revokeValidator.ValidateAsync(request, ct);
-        if (!validationResult.IsValid)
-        {
-            foreach (var failure in validationResult.Errors)
-            {
-                ModelState.AddModelError(failure.PropertyName, failure.ErrorMessage);
-            }
-            return ValidationProblem(ModelState);
-        }
 
         var command = new RevokeStreamAccessGrantCommand(grantId, request.Reason);
         var result = await revokeGrantHandler.HandleAsync(command, ct);

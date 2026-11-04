@@ -133,7 +133,13 @@ try
     builder.Services.AddWorldPinballLocalization();
 
 
-    builder.Services.AddControllers();
+    builder.Services.AddControllers(options =>
+    {
+        // Automatically executes FluentValidation on incoming action arguments
+        options.Filters.Add<WorldPinball.Api.Filters.ModelBindingValidation.ValidationFilter>();
+    });
+    
+    
     builder.Services.AddHttpContextAccessor();
     builder.Services.AddEndpointsApiExplorer();
 

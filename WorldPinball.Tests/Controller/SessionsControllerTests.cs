@@ -83,9 +83,6 @@ public class SessionsControllerTests
             _addPlayerHandler,
             _kickPlayerHandler,
             _launchSessionHandler,
-            _validatorCreateSession,
-            _validatorSubmitScore,
-            _validatorAddPlayer,
             _lobbyNotifier,
             _sessionRepository,
             _authorization

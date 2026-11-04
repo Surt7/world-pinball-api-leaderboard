@@ -13,8 +13,7 @@ namespace WorldPinball.Api.Controllers.Admin;
 [RequirePermission(Permission.CertificatesIssueSoftware)]
 [Route("api/v1/admin/certificates")]
 public sealed class AdminCertificatesController(
-    IIssueSoftwareCertificateHandler handler,
-    IValidator<IssueSoftwareCertificateRequest> validator
+    IIssueSoftwareCertificateHandler handler
 ) : ControllerBase
 {
 
@@ -28,16 +27,6 @@ public sealed class AdminCertificatesController(
         [FromBody] IssueSoftwareCertificateRequest request,
         CancellationToken ct)
     {
-
-        var validationResult = await validator.ValidateAsync(request, ct);
-        if (!validationResult.IsValid)
-        {
-            foreach (var failure in validationResult.Errors)
-            {
-                ModelState.AddModelError(failure.PropertyName, failure.ErrorMessage);
-            }
-            return ValidationProblem(ModelState);
-        }
         
         var command = new IssueSoftwareCertificateCommand(
             request.PublisherName,

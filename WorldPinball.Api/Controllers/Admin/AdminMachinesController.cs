@@ -5,7 +5,6 @@ using Microsoft.AspNetCore.Mvc;
 using WorldPinball.Api.Filters.Idempotency;
 using WorldPinball.Api.Security.Permissions;
 using WorldPinball.Application.Contracts.Admin.Machine;
-using FluentValidation;
 using Microsoft.AspNetCore.Authorization;
 using System.Security.Claims;
 using WorldPinball.Api.Contracts.Machine;
@@ -32,8 +31,7 @@ namespace WorldPinball.Api.Controllers.Admin;
 [Route("api/v2/admin/machines")]
 public sealed class AdminMachinesController(
     IProvisionMachineHandler handler,
-    IReissueEnrollmentTokenHandler reissueHandler,
-    IValidator<ProvisionMachineRequest> requestValidator) 
+    IReissueEnrollmentTokenHandler reissueHandler) 
     : ControllerBase
 {
     
@@ -62,16 +60,6 @@ public sealed class AdminMachinesController(
             {
                 message = "The authenticated user has no subject identifier."
             });
-        }
-        
-        var validationResult = await requestValidator.ValidateAsync(req, ct);
-        if (!validationResult.IsValid)
-        {
-            foreach (var failure in validationResult.Errors)
-            {
-                ModelState.AddModelError(failure.PropertyName, failure.ErrorMessage);
-            }
-            return ValidationProblem(ModelState);
         }
         
         var displayName = req.DisplayName;

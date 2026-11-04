@@ -1,4 +1,3 @@
-﻿using FluentValidation;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using WorldPinball.Api.Contracts.Workstations;
@@ -10,8 +9,7 @@ namespace WorldPinball.Api.Controllers.Public;
 [ApiController]
 [Route("api/v1/workstations")]
 public class WorkstationsController(
-    IEnrollWorkstationHandler handler,
-    IValidator<EnrollWorkstationRequest> validator
+    IEnrollWorkstationHandler handler
 ) : ControllerBase
 {
     [HttpPost("enroll")]
@@ -23,15 +21,6 @@ public class WorkstationsController(
         [FromBody] EnrollWorkstationRequest request,
         CancellationToken ct)
     {
-        var validationResult = await validator.ValidateAsync(request, ct);
-        if (!validationResult.IsValid)
-        {
-            foreach (var failure in validationResult.Errors)
-            {
-                ModelState.AddModelError(failure.PropertyName, failure.ErrorMessage);
-            }
-            return ValidationProblem(ModelState);
-        }
 
         var command = new EnrollWorkstationCommand(
             request.PlainBootstrapToken,
