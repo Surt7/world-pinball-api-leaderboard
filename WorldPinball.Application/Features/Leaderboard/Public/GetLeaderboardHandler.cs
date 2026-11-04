@@ -19,13 +19,11 @@ public async Task<GetLeaderboardResult> HandleAsync(
         var hasSlugs = !string.IsNullOrWhiteSpace(query.IpSlug) 
                        && !string.IsNullOrWhiteSpace(query.ModeCode);
         
-        
         if (!hasGuids && !hasSlugs)
         {
             return new GetLeaderboardResult.InvalidParameters(
                 "Either (IpId and ModeId) or (IpSlug and ModeCode) must be provided.");
         }
-        
         
         if (query is { IpId: { } ipId, ModeId: { } modeId })
         {
@@ -37,9 +35,8 @@ public async Task<GetLeaderboardResult> HandleAsync(
             }
         }
         
-        
         var dbResults = await repository.GetLeaderboardAsync(
-            query.IpId, query.ModeId, query.IpSlug, query.ModeCode, limit, ct);
+            query.IpId, query.ModeId, query.IpSlug, query.ModeCode, limit, 0, ct);
         if (query is { IpId: { } ip, ModeId: { } mode })
         {
             await realTimeService.SetCachedLeaderboardAsync(

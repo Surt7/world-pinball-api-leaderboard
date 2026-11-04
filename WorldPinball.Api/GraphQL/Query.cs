@@ -243,8 +243,9 @@ public class Query
         string? ipSlug = null,
         string? modeCode = null,
         int limit = 50,
+        int skip = 0,
         CancellationToken ct = default)
     {
-        return await repository.GetLeaderboardAsync(ipId, modeId, ipSlug, modeCode, limit, ct);
+        return await repository.GetLeaderboardAsync(ipId, modeId, ipSlug, modeCode, limit, skip, ct);
     }
 }
