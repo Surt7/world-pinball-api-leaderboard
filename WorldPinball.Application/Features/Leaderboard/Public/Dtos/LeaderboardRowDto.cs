@@ -6,6 +6,8 @@ public sealed record LeaderboardRowDto(
     string PlayerInitials,
     string PlayerName,
     long Score,
+    long? PointsBehindPrevious,
+    long PointsBehindLeader,
     DateTime AchievedAtUtc,
     string IpName,
     string ModeName

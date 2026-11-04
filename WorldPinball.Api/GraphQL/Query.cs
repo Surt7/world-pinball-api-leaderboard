@@ -1,6 +1,8 @@
 using System.Security.Claims;
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
+using WorldPinball.Application.Features.Leaderboard.Public.Dtos;
+using WorldPinball.Application.Interfaces.Repositories;
 using WorldPinball.Domain.Entities;
 using WorldPinball.Domain.Enums;
 using WorldPinball.Infrastructure.Persistence;
@@ -233,4 +235,16 @@ public class Query
         );
     }
     
+    // Fast ranked leaderboard computed with PostgreSQL Window Functions (DENSE_RANK, LAG, FIRST_VALUE)
+    public async Task<IReadOnlyList<LeaderboardRowDto>> GetLeaderboard(
+        [Service] ILeaderboardReadRepository repository,
+        Guid? ipId = null,
+        Guid? modeId = null,
+        string? ipSlug = null,
+        string? modeCode = null,
+        int limit = 50,
+        CancellationToken ct = default)
+    {
+        return await repository.GetLeaderboardAsync(ipId, modeId, ipSlug, modeCode, limit, ct);
+    }
 }

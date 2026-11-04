@@ -25,8 +25,8 @@ public class GetLeaderboardHandlerTests
         
         var cachedRows = new List<LeaderboardRowDto>
         {
-            new(1, Guid.NewGuid(), "TOM", "Thomas", 150_000_000, DateTime.UtcNow, "Star Wars", "Classic"),
-            new(2, Guid.NewGuid(), "BOB", "Bobby", 90_000_000, DateTime.UtcNow, "Star Wars", "Classic")
+            new(1, Guid.NewGuid(), "TOM", "Thomas", 150_000_000, null, 0, DateTime.UtcNow, "Star Wars", "Classic"),
+            new(2, Guid.NewGuid(), "BOB", "Bobby", 90_000_000, 60_000_000, 60_000_000, DateTime.UtcNow, "Star Wars", "Classic")
         };
         realtimeService.GetCachedLeaderboardAsync(
                 ipId, modeId, 10, Arg.Any<CancellationToken>())
@@ -71,7 +71,7 @@ public class GetLeaderboardHandlerTests
         
         var dbRows = new List<LeaderboardRowDto>
         {
-            new(1, Guid.NewGuid(), "TOM", "Thomas", 150_000_000, DateTime.UtcNow, "Star Wars", "Classic")
+            new(1, Guid.NewGuid(), "TOM", "Thomas", 150_000_000, null, 0, DateTime.UtcNow, "Star Wars", "Classic")
         };
         repository.GetLeaderboardAsync(
                 ipId, modeId, null, null, 10, Arg.Any<CancellationToken>())

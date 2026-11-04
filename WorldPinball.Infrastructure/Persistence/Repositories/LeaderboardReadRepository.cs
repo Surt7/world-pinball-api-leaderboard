@@ -1,18 +1,51 @@
-using Microsoft.EntityFrameworkCore;
-using WorldPinball.Application.Interfaces.Repositories;
+using Dapper;
+using Microsoft.Extensions.Configuration;
+using Npgsql;
 using WorldPinball.Application.Features.Leaderboard.Public.Dtos;
-using WorldPinball.Domain.Entities;
+using WorldPinball.Application.Interfaces.Repositories;
 
 namespace WorldPinball.Infrastructure.Persistence.Repositories;
 
-public sealed class LeaderboardReadRepository : ILeaderboardReadRepository
+public sealed class LeaderboardReadRepository(IConfiguration config) : ILeaderboardReadRepository
 {
-    private readonly AppDbContext _db;
-
-    public LeaderboardReadRepository(AppDbContext db)
-    {
-        _db = db;
-    }
+    private const string Sql = """
+        WITH RankedScores AS (
+            SELECT
+                se.score_entry_id AS ScoreEntryId,
+                COALESCE(p.initials, 'AAA') AS PlayerInitials,
+                COALESCE(p.display_name, 'Anonymous') AS PlayerName,
+                se.score AS Score,
+                se.achieved_at_utc AS AchievedAtUtc,
+                ip.name AS IpName,
+                gm.name AS ModeName,
+                DENSE_RANK() OVER (ORDER BY se.score DESC, se.achieved_at_utc ASC) AS Rank,
+                LAG(se.score) OVER (ORDER BY se.score DESC, se.achieved_at_utc ASC) - se.score AS PointsBehindPrevious,
+                FIRST_VALUE(se.score) OVER (ORDER BY se.score DESC, se.achieved_at_utc ASC) - se.score AS PointsBehindLeader
+            FROM public.score_entries se
+            INNER JOIN public.ip_licenses ip ON ip.ip_id = se.ip_id
+            INNER JOIN public.game_modes gm ON gm.mode_id = se.mode_id
+            LEFT JOIN public.user_profiles p ON p.user_id::text = se.user_id
+            WHERE se.is_validated = true
+              AND (@IpId IS NULL OR se.ip_id = @IpId)
+              AND (@ModeId IS NULL OR se.mode_id = @ModeId)
+              AND (@IpSlug IS NULL OR ip.slug = @IpSlug)
+              AND (@ModeCode IS NULL OR gm.code = @ModeCode)
+        )
+        SELECT
+            Rank,
+            ScoreEntryId,
+            PlayerInitials,
+            PlayerName,
+            Score,
+            PointsBehindPrevious,
+            PointsBehindLeader,
+            AchievedAtUtc,
+            IpName,
+            ModeName
+        FROM RankedScores
+        ORDER BY Rank ASC, AchievedAtUtc ASC
+        LIMIT @Limit;
+        """;
 
     public async Task<IReadOnlyList<LeaderboardRowDto>> GetLeaderboardAsync(
         Guid? ipId = null,
@@ -22,66 +55,23 @@ public sealed class LeaderboardReadRepository : ILeaderboardReadRepository
         int limit = 50,
         CancellationToken cancellationToken = default)
     {
-        var q = _db.ScoreEntries
-            .AsNoTracking()
-            .Where(x => x.IsValidated);
+        // Safe limit protection: between 1 and 100 rows
+        var safeLimit = Math.Clamp(limit, 1, 100);
+        var cs = config.GetRequiredPostgresConnectionString();
+        await using var connection = new NpgsqlConnection(cs);
 
-        if (ipId.HasValue && ipId != Guid.Empty)
+        var parameters = new
         {
-            q = q.Where(x => x.IpId == ipId.Value);
-        }
-        else if (!string.IsNullOrWhiteSpace(ipSlug))
-        {
-            q = q.Where(x => x.IpLicense.Slug == ipSlug);
-        }
+            IpId = ipId,
+            ModeId = modeId,
+            IpSlug = ipSlug,
+            ModeCode = modeCode,
+            Limit = safeLimit
+        };
 
-        if (modeId.HasValue && modeId != Guid.Empty)
-        {
-            q = q.Where(x => x.ModeId == modeId.Value);
-        }
-        else if (!string.IsNullOrWhiteSpace(modeCode))
-        {
-            q = q.Where(x => x.Mode.Code == modeCode);
-        }
+        var command = new CommandDefinition(Sql, parameters, cancellationToken: cancellationToken);
+        var results = await connection.QueryAsync<LeaderboardRowDto>(command);
 
-        var entries = await q
-            .OrderByDescending(x => x.Score)
-            .ThenBy(at => at.AchievedAtUtc) // second orderding by ASC default
-            .Take(limit)
-            .Select(x => new
-            {
-                x.ScoreEntryId,
-                x.Score,
-                x.AchievedAtUtc,
-                IpName = x.IpLicense.Name,
-                ModeName = x.Mode.Name,
-                Player = x.Session.Players
-                    .FirstOrDefault(p => p.SlotNumber == x.SlotNumber)
-            })
-            .ToListAsync(cancellationToken);
-        
-        // I done loop to avoid double trigger ToList()
-        // problem: we had to map rank with index (+ avoid tricky Object[index] indexer)
-
-        var result = new List<LeaderboardRowDto>(entries.Count);
-        for (int i = 0; i < entries.Count; i++)
-        {
-            var item = entries[i];
-            result.Add(new LeaderboardRowDto(
-                Rank: i + 1,
-                ScoreEntryId: item.ScoreEntryId,
-                PlayerInitials: item.Player?.GuestInitials ?? item.Player?.UserProfile?.Initials ?? "AAA",
-                PlayerName: item.Player?.UserProfile?.DisplayName ?? "Guest",
-                Score: item.Score,
-                AchievedAtUtc: item.AchievedAtUtc,
-                IpName: item.IpName,
-                ModeName: item.ModeName
-            ));
-        }
-
-
-        return result;
+        return results.ToList();
     }
-
-
 }
