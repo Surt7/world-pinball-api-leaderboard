@@ -58,6 +58,7 @@ jobs:
           SEQ_ADMIN_PASSWORD=$(generate_password)
           STEP_CA_PASSWORD=$(generate_password)
           POSTGRES_STAT_PASSWORD=$(generate_password)
+          MONGO_PASSWORD=$(generate_password)
           
           # Create DataProtection RSA Master Key
           az keyvault key create --vault-name "$VAULT_NAME" --name "dataprotection-key" --kty RSA --size 2048 --output none
@@ -66,6 +67,7 @@ jobs:
           az keyvault secret set --vault-name "$VAULT_NAME" --name "ConnectionStrings--Redis" --value "redis.$DOMAIN_SUFFIX:6379,password=$REDIS_PASSWORD,abortConnect=false" --output none
           az keyvault secret set --vault-name "$VAULT_NAME" --name "RabbitMQ--User" --value "worldpinball" --output none
           az keyvault secret set --vault-name "$VAULT_NAME" --name "RabbitMQ--Password" --value "$RABBITMQ_DEFAULT_PASS" --output none
+          az keyvault secret set --vault-name "$VAULT_NAME" --name "Mongo--ConnectionString" --value "mongodb://worldpinball:$MONGO_PASSWORD@mongo.$DOMAIN_SUFFIX:27017/WorldPinballHub?authSource=admin" --output none
           az keyvault secret set --vault-name "$VAULT_NAME" --name "Keycloak--DbPassword" --value "$KEYCLOAK_DB_PASSWORD" --output none
           az keyvault secret set --vault-name "$VAULT_NAME" --name "Keycloak--Authority" --value "https://auth.$DOMAIN_SUFFIX/realms/worldpinball" --output none
           az keyvault secret set --vault-name "$VAULT_NAME" --name "Keycloak--AdminUser" --value "admin" --output none
