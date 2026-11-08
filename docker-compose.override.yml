@@ -132,6 +132,8 @@ services:
      depends_on:
        hub-db:
          condition: service_healthy
+       keycloak:
+         condition: service_healthy
      networks:
        default:
            aliases:
@@ -147,6 +149,9 @@ services:
        RabbitMq__Username: "${RABBITMQ_DEFAULT_USER:-worldpinball}"
        RabbitMq__Password: "${RABBITMQ_DEFAULT_PASS}"
        Gemini__ApiKey: "${GEMINI_API_KEY}"
+       Keycloak__Authority: "https://auth.worldpinball.local/realms/worldpinball"
+       Keycloak__MetadataAddress: "http://keycloak:8080/realms/worldpinball/.well-known/openid-configuration"
+       Keycloak__Audience: "worldpinball-api"
        
        
   # Allow Keycloak to accept requests from auth.worldpinball.local
