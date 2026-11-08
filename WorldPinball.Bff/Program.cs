@@ -21,11 +21,14 @@ builder.WebHost.ConfigureKestrel(options =>
 // Configure Serilog with Seq and OpenTelemetry
 builder.AddBffLogging();
 
-// Configure cancellation token source 5 sec timeout
+// Configure cancellation token source timeouts: 5s default, 60s for AI
 builder.Services.AddRequestTimeouts(options => {
     options.DefaultPolicy = new RequestTimeoutPolicy { 
         Timeout = TimeSpan.FromSeconds(5) 
     };
+    options.AddPolicy("ai-assistant-policy", new RequestTimeoutPolicy {
+        Timeout = TimeSpan.FromSeconds(60)
+    });
 });
 
 /* Security configuration references:
