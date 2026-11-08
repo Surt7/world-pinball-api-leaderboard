@@ -79,7 +79,7 @@ services:
       SSL_CERT_FILE: "/app/certs/dev-rootCA.pem"
       Services__CoreApi__Https: "https://core-api.worldpinball.local:8443"
       ReverseProxy__Clusters__core-api-cluster__Destinations__destination1__Address: "https://core-api.worldpinball.local:8443"
-      ReverseProxy__Clusters__hub-cluster__Destinations__destination1__Address: "http://hub.worldpinball.local:8080"
+      ReverseProxy__Clusters__hub-cluster__Destinations__destination1__Address: "https://hub.worldpinball.local:8443"
       ReverseProxy__Routes__graphql-route__ClusterId: "core-api-cluster"
       ReverseProxy__Routes__graphql-route__Match__Path: "/graphql"
       Keycloak__Authority: "https://auth.worldpinball.local/realms/worldpinball"
@@ -140,7 +140,8 @@ services:
              - hub.worldpinball.local
      environment:
        ASPNETCORE_ENVIRONMENT: "Development"
-       ASPNETCORE_HTTP_PORTS: "8080"
+       ASPNETCORE_URLS: "https://+:8443"
+       SSL_CERT_FILE: "/app/certs/dev-rootCA.pem"
        ConnectionStrings__DefaultConnection: "Host=hub-postgres-vector;Port=5432;Database=worldpinball_hub;Username=postgres;Password=${HUB_POSTGRES_PASSWORD:-${POSTGRES_PASSWORD}}"
        Redis__Host: "redis:6379"
        Redis__Password: "${REDIS_PASSWORD}"
@@ -152,6 +153,10 @@ services:
        Keycloak__Authority: "https://auth.worldpinball.local/realms/worldpinball"
        Keycloak__MetadataAddress: "http://keycloak:8080/realms/worldpinball/.well-known/openid-configuration"
        Keycloak__Audience: "worldpinball-api"
+     volumes:
+       - ./docker/nginx/certs/dev-rootCA.pem:/app/certs/dev-rootCA.pem:ro
+       - ./docker/nginx/certs/worldpinball.local.crt:/app/certs/hub.crt:ro
+       - ./docker/nginx/certs/worldpinball.local.key:/app/certs/hub.key:ro
        
        
   # Allow Keycloak to accept requests from auth.worldpinball.local
