@@ -79,6 +79,7 @@ services:
       SSL_CERT_FILE: "/app/certs/dev-rootCA.pem"
       Services__CoreApi__Https: "https://core-api.worldpinball.local:8443"
       ReverseProxy__Clusters__core-api-cluster__Destinations__destination1__Address: "https://core-api.worldpinball.local:8443"
+      ReverseProxy__Clusters__hub-cluster__Destinations__destination1__Address: "http://hub.worldpinball.local:8080"
       ReverseProxy__Routes__graphql-route__ClusterId: "core-api-cluster"
       ReverseProxy__Routes__graphql-route__Match__Path: "/graphql"
       Keycloak__Authority: "https://auth.worldpinball.local/realms/worldpinball"
@@ -102,7 +103,52 @@ services:
       keycloak:
         condition: service_healthy
     restart: unless-stopped
-
+    
+  # Dedicated PostgreSQL 17 with pgvector for Hub (Chat, Feed, Semantic Search)
+  hub-db:
+    image: pgvector/pgvector:pg17
+    container_name: hub-postgres-vector
+    environment:
+      POSTGRES_DB: worldpinball_hub
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${HUB_POSTGRES_PASSWORD:-${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}}
+    ports:
+      - "5434:5432"
+    volumes:
+      - worldpinball_hub_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U postgres -d worldpinball_hub" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    
+  # Real-time chat, community feed, and pgvector semantic search service
+  hub:
+     image: worldpinball-hub:dev
+     container_name: worldpinball-dev-hub
+     profiles: ["apps"]
+     restart: unless-stopped
+     depends_on:
+       hub-db:
+         condition: service_healthy
+     networks:
+       default:
+           aliases:
+             - hub.worldpinball.local
+     environment:
+       ASPNETCORE_ENVIRONMENT: "Development"
+       ASPNETCORE_HTTP_PORTS: "8080"
+       ConnectionStrings__DefaultConnection: "Host=hub-postgres-vector;Port=5432;Database=worldpinball_hub;Username=postgres;Password=${HUB_POSTGRES_PASSWORD:-${POSTGRES_PASSWORD}}"
+       Redis__Host: "redis:6379"
+       Redis__Password: "${REDIS_PASSWORD}"
+       RabbitMq__Host: "rabbitmq"
+       RabbitMq__Port: "5672"
+       RabbitMq__Username: "${RABBITMQ_DEFAULT_USER:-worldpinball}"
+       RabbitMq__Password: "${RABBITMQ_DEFAULT_PASS}"
+       Gemini__ApiKey: "${GEMINI_API_KEY}"
+       
+       
   # Allow Keycloak to accept requests from auth.worldpinball.local
   keycloak:
     environment:
@@ -115,3 +161,6 @@ services:
     image: worldpinball-frontend:latest
     container_name: worldpinball-frontend
     restart: unless-stopped
+
+volumes:
+  worldpinball_hub_pgdata:
