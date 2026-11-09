@@ -157,6 +157,7 @@ services:
        - ./docker/nginx/certs/dev-rootCA.pem:/app/certs/dev-rootCA.pem:ro
        - ./docker/nginx/certs/worldpinball.local.crt:/app/certs/hub.crt:ro
        - ./docker/nginx/certs/worldpinball.local.key:/app/certs/hub.key:ro
+       - ./docker/nginx/certs/worldpinball.local.crt:/app/certs/leaderboard.crt:ro
        
        
   # Allow Keycloak to accept requests from auth.worldpinball.local
