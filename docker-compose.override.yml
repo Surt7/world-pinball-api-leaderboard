@@ -52,6 +52,8 @@ services:
       - ./docker/nginx/certs/dev-rootCA.pem:/app/certs/dev-rootCA.pem:ro
       - ./docker/nginx/certs/worldpinball.local.crt:/app/certs/api.crt:ro
       - ./docker/nginx/certs/worldpinball.local.key:/app/certs/api.key:ro
+      - ./docker/nginx/certs/leaderboard.key:/app/certs/leaderboard.key:ro
+      - ./docker/nginx/certs/hub.crt:/app/certs/hub.crt:ro
     depends_on:
       db:
         condition: service_healthy
@@ -155,9 +157,10 @@ services:
        Keycloak__Audience: "worldpinball-api"
      volumes:
        - ./docker/nginx/certs/dev-rootCA.pem:/app/certs/dev-rootCA.pem:ro
-       - ./docker/nginx/certs/worldpinball.local.crt:/app/certs/hub.crt:ro
-       - ./docker/nginx/certs/worldpinball.local.key:/app/certs/hub.key:ro
-       - ./docker/nginx/certs/worldpinball.local.crt:/app/certs/leaderboard.crt:ro
+       - ./docker/nginx/certs/worldpinball.local.crt:/app/certs/hub-server.crt:ro
+       - ./docker/nginx/certs/worldpinball.local.key:/app/certs/hub-server.key:ro
+       - ./docker/nginx/certs/hub.key:/app/certs/hub.key:ro
+       - ./docker/nginx/certs/leaderboard.crt:/app/certs/leaderboard.crt:ro
        
        
   # Allow Keycloak to accept requests from auth.worldpinball.local

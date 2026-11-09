@@ -5,6 +5,7 @@ using Microsoft.Extensions.Configuration;
 using NSubstitute;
 using WorldPinball.Infrastructure.Security.Cryptography;
 using Xunit;
+using System.Security.Cryptography.X509Certificates;
 
 namespace WorldPinball.Tests.Infrastructure.Security.Cryptography;
 
@@ -96,5 +97,39 @@ public sealed class EcdsaP256SignatureSignerTests : IDisposable
         var act = () => new EcdsaP256SignatureSigner(missingConfig);
         // Assert
         act.Should().Throw<FileNotFoundException>();
+    }
+    
+    
+    [Fact]
+    public void Sign_WithRealStepCaCertificates_ShouldVerifyAgainstX509PublicCert()
+    {
+        // Arrange - Locate the real Step-CA issued cert & key from docker directory
+        var certPath = Path.Combine(Directory.GetCurrentDirectory(), "docker", "nginx", "certs", "leaderboard.crt");
+        var keyPath = Path.Combine(Directory.GetCurrentDirectory(), "docker", "nginx", "certs", "leaderboard.key");
+
+        // Skip gracefully if run in an environment without the mounted docker certs
+        if (!File.Exists(certPath) || !File.Exists(keyPath))
+        {
+            return;
+        }
+
+        var config = Substitute.For<IConfiguration>();
+        config["Security:PrivateKeyPath"].Returns(keyPath);
+
+        using var signer = new EcdsaP256SignatureSigner(config);
+        var verifier = new EcdsaP256SignatureVerifier();
+        byte[] payload = Encoding.UTF8.GetBytes("{\"event\":\"score_submitted\",\"gameId\":\"twilight-zone\",\"score\":999000}");
+
+        // Act - Leaderboard signs payload with private key
+        string signature = signer.Sign(payload);
+
+        // Load the public X.509 certificate (simulating Hub's CertificatePublicKeyResolver)
+        using var cert = X509CertificateLoader.LoadCertificateFromFile(certPath);
+        using var ecdsaPublic = cert.GetECDsaPublicKey()!;
+        string publicKeyPem = ecdsaPublic.ExportSubjectPublicKeyInfoPem();
+
+        // Assert - Hub verifies the signature using Leaderboard's certificate public key
+        bool isValid = verifier.Verify(publicKeyPem, payload, signature);
+        isValid.Should().BeTrue();
     }
 }

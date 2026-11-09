@@ -71,6 +71,7 @@ public static class DependencyInjection
         services.AddScoped<ISecretService, SecretService>();
         // ECDSA P-256 Signer for cross-service authentication
         services.AddSingleton<ISignatureSigner, EcdsaP256SignatureSigner>();
+        services.AddSingleton<IPublicKeyResolver, CertificatePublicKeyResolver>();
         
         // Business repo
         services.AddScoped<IIpLicenseReadRepository, IpLicenseReadRepository>();
