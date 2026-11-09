@@ -27,6 +27,9 @@ using WorldPinball.Infrastructure.Services.KafkaConsumers;
 using WorldPinball.Infrastructure.Services.KafkaProducers;
 using WorldPinball.Infrastructure.Services.Outbox;
 using WorldPinball.Infrastructure.Services.Redis;
+using WorldPinball.Application.Security.Cryptography;
+using WorldPinball.Infrastructure.Security.Cryptography;
+
 
 namespace WorldPinball.Infrastructure;
 
@@ -66,6 +69,8 @@ public static class DependencyInjection
         // -------------------- Repositories registering --------------------
         // Security crypto
         services.AddScoped<ISecretService, SecretService>();
+        // ECDSA P-256 Signer for cross-service authentication
+        services.AddSingleton<ISignatureSigner, EcdsaP256SignatureSigner>();
         
         // Business repo
         services.AddScoped<IIpLicenseReadRepository, IpLicenseReadRepository>();
