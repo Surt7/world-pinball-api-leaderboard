@@ -6,9 +6,9 @@ using Microsoft.Extensions.Time.Testing;
 using NSubstitute;
 using WorldPinball.Application.Security.Cryptography;
 using WorldPinball.Domain.Entities;
-using WorldPinball.Domain.Enums;
+
 using WorldPinball.Infrastructure.Persistence;
-using WorldPinball.Infrastructure.Security;
+
 using WorldPinball.Infrastructure.Security.Cryptography;
 
 namespace WorldPinball.Tests.Infrastructure.Security.Cryptography;
@@ -73,10 +73,10 @@ public class MachineAuthServiceTests
 
         _canonicalBuilderMock
             .Build(timestamp, nonce, "POST", "/api/machines/telemetry", "{}")
-            .Returns(new byte[] { 1, 2, 3 });
+            .Returns([1, 2, 3]);
 
         _signatureVerifierMock
-            .Verify("pk", Arg.Is<byte[]>(b => b.SequenceEqual(new byte[] { 1, 2, 3 })), "valid-signature-base64", "algo")
+            .Verify("pk", Arg.Is<byte[]>(b => ((IEnumerable<byte>)b).SequenceEqual(new byte[] { 1, 2, 3 })), "valid-signature-base64", "algo")
             .Returns(true);
 
         // Act

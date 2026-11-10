@@ -127,40 +127,42 @@ services:
     
   # Real-time chat, community feed, and pgvector semantic search service
   hub:
-     image: worldpinball-hub:dev
-     container_name: worldpinball-dev-hub
-     profiles: ["apps"]
-     restart: unless-stopped
-     depends_on:
-       hub-db:
-         condition: service_healthy
-       keycloak:
-         condition: service_healthy
-     networks:
-       default:
-           aliases:
-             - hub.worldpinball.local
-     environment:
-       ASPNETCORE_ENVIRONMENT: "Development"
-       ASPNETCORE_URLS: "https://+:8443"
-       SSL_CERT_FILE: "/app/certs/dev-rootCA.pem"
-       ConnectionStrings__DefaultConnection: "Host=hub-postgres-vector;Port=5432;Database=worldpinball_hub;Username=postgres;Password=${HUB_POSTGRES_PASSWORD:-${POSTGRES_PASSWORD}}"
-       Redis__Host: "redis:6379"
-       Redis__Password: "${REDIS_PASSWORD}"
-       RabbitMq__Host: "rabbitmq"
-       RabbitMq__Port: "5672"
-       RabbitMq__Username: "${RABBITMQ_DEFAULT_USER:-worldpinball}"
-       RabbitMq__Password: "${RABBITMQ_DEFAULT_PASS}"
-       Gemini__ApiKey: "${GEMINI_API_KEY}"
-       Keycloak__Authority: "https://auth.worldpinball.local/realms/worldpinball"
-       Keycloak__MetadataAddress: "http://keycloak:8080/realms/worldpinball/.well-known/openid-configuration"
-       Keycloak__Audience: "worldpinball-api"
-     volumes:
-       - ./docker/nginx/certs/dev-rootCA.pem:/app/certs/dev-rootCA.pem:ro
-       - ./docker/nginx/certs/worldpinball.local.crt:/app/certs/hub-server.crt:ro
-       - ./docker/nginx/certs/worldpinball.local.key:/app/certs/hub-server.key:ro
-       - ./docker/nginx/certs/hub.key:/app/certs/hub.key:ro
-       - ./docker/nginx/certs/leaderboard.crt:/app/certs/leaderboard.crt:ro
+    build:
+      context: D:/Workspace/WorldPinball.GgWp.Hub
+      dockerfile: WorldPinball.GgWp.Hub.Api/Dockerfile
+    image: worldpinball-hub:dev
+    container_name: worldpinball-dev-hub
+    profiles: ["apps"]
+    restart: unless-stopped
+    depends_on:
+      hub-db:
+        condition: service_healthy
+      keycloak:
+        condition: service_healthy
+    networks:
+      default:
+        aliases:
+          - hub.worldpinball.local
+    environment:
+      ASPNETCORE_ENVIRONMENT: "Development"
+      ASPNETCORE_URLS: "https://+:8443"
+      SSL_CERT_FILE: "/app/certs/dev-rootCA.pem"
+      ConnectionStrings__DefaultConnection: "Host=hub-postgres-vector;Port=5432;Database=worldpinball_hub;Username=postgres;Password=${HUB_POSTGRES_PASSWORD:-${POSTGRES_PASSWORD}}"
+      Redis__Host: "redis:6379"
+      Redis__Password: "${REDIS_PASSWORD}"
+      RabbitMq__Host: "rabbitmq"
+      RabbitMq__Port: "5672"
+      RabbitMq__Username: "${RABBITMQ_DEFAULT_USER:-worldpinball}"
+      RabbitMq__Password: "${RABBITMQ_DEFAULT_PASS}"
+      Gemini__ApiKey: "${GEMINI_API_KEY}"
+      Keycloak__Authority: "https://auth.worldpinball.local/realms/worldpinball"
+      Keycloak__MetadataAddress: "http://keycloak:8080/realms/worldpinball/.well-known/openid-configuration"
+      Keycloak__Audience: "worldpinball-api"
+    volumes:
+      - ./docker/nginx/certs/dev-rootCA.pem:/app/certs/dev-rootCA.pem:ro
+      - ./docker/nginx/certs/hub.crt:/app/certs/hub.crt:ro
+      - ./docker/nginx/certs/hub.key:/app/certs/hub.key:ro
+      - ./docker/nginx/certs/leaderboard.crt:/app/certs/leaderboard.crt:ro
        
        
   # Allow Keycloak to accept requests from auth.worldpinball.local

@@ -1,5 +1,3 @@
-using HotChocolate;
-using HotChocolate.Execution;
 using WorldPinball.Application.Features.Machines.Admin.GetMachineSecurity;
 using Serilog;
 using WorldPinball.Api.Extensions;
@@ -53,6 +51,7 @@ using WorldPinball.Application.Features.Machines.Admin.GetPagedMachines;
 using WorldPinball.Application.Features.Workstations.Admin.CreateBootstrapToken;
 using WorldPinball.Application.Features.Workstations.Public.EnrollWorkstation;
 using Path = System.IO.Path;
+
 
 // -------------------- BUILDER -------------------- BUILDER -------------------- BUILDER --------------------//
 

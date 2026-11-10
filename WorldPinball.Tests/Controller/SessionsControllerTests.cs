@@ -9,6 +9,7 @@ using Microsoft.AspNetCore.Mvc;
 using NSubstitute;
 using WorldPinball.Api.Contracts.Sessions;
 using WorldPinball.Api.Controllers.Public;
+using WorldPinball.Api.Filters.Security;
 using WorldPinball.Application.Features.GameSessions.Public.AbortSession;
 using WorldPinball.Application.Features.GameSessions.Public.AbortSession.Commands;
 using WorldPinball.Application.Features.GameSessions.Public.AddPlayer;
@@ -33,7 +34,7 @@ namespace WorldPinball.Tests.Controller;
 
 public class SessionsControllerTests
 {
-    private readonly IMachineAuthService _authService = Substitute.For<IMachineAuthService>();
+
     private readonly ICreateGameSessionHandler _createSessionHandler = Substitute.For<ICreateGameSessionHandler>();
     private readonly ISubmitScoreHandler _submitScoreHandler = Substitute.For<ISubmitScoreHandler>();
     private readonly IAbortSessionHandler _abortSessionHandler = Substitute.For<IAbortSessionHandler>();
@@ -75,7 +76,6 @@ public class SessionsControllerTests
             .Returns(new ValidationResult());
 
         var controller = new SessionsController(
-            _authService,
             _createSessionHandler,
             _submitScoreHandler,
             _abortSessionHandler,
@@ -108,8 +108,7 @@ public class SessionsControllerTests
         string fakeSignature = RandomNumberGenerator.GetHexString(16);
         var now = DateTimeOffset.UtcNow;
 
-        _authService.ValidateAsync(Arg.Any<MachineAuthContext>(), Arg.Any<CancellationToken>())
-            .Returns(new MachineAuthResult.Success(machineId, deviceId, nonce, timestamp));
+
 
         _createSessionHandler.HandleAsync(Arg.Any<CreateGameSessionCommand>(), Arg.Any<CancellationToken>())
             .Returns(new CreateGameSessionResult.Success(sessionId, nonce, now));
@@ -117,12 +116,11 @@ public class SessionsControllerTests
         var controller = CreateController();
         controller.HttpContext.Request.Method = "POST";
         controller.HttpContext.Request.Path = "/api/v1/sessions/create";
-
+        controller.HttpContext.Items[MachineSignatureFilter.DeviceIdItemKey] = deviceId;
         var request = new CreateGameSessionRequest("STORY", "1.02.12");
 
         // Act
-        var result = await controller.CreateGameSession(request, deviceId.ToString(), timestamp.ToString(), nonce,
-            fakeSignature, CancellationToken.None);
+        var result = await controller.CreateGameSession(request, CancellationToken.None);
 
         // Assert
         var okResult = result.Result.Should().BeOfType<OkObjectResult>().Which;
@@ -334,4 +332,8 @@ public class SessionsControllerTests
         // Assert
         result.Result.Should().BeOfType<ForbidResult>();
     }
+    
+    
+    
+    
 }

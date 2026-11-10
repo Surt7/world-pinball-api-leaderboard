@@ -2,6 +2,8 @@ using System.Text.Json;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using WorldPinball.Api.Contracts.Sessions;
+using WorldPinball.Api.Extensions;
+using WorldPinball.Api.Filters.Security;
 using WorldPinball.Application.Features.GameSessions.Public.AbortSession;
 using WorldPinball.Application.Features.GameSessions.Public.AbortSession.Commands;
 using WorldPinball.Application.Features.GameSessions.Public.AddPlayer;
@@ -27,7 +29,6 @@ namespace WorldPinball.Api.Controllers.Public;
 [ApiController]
 [Route("api/v1/sessions")]
 public class SessionsController(
-    IMachineAuthService authService,
     ICreateGameSessionHandler createGameSessionHandler,
     ISubmitScoreHandler submitScoreHandler,
     IAbortSessionHandler abortSessionHandler,
@@ -50,6 +51,7 @@ public class SessionsController(
   
     
     [HttpPost("create")]
+    [RequireMachineSignature] 
     [EndpointSummary("Create a game session")]
     [EndpointDescription("POST to create new game session")]
     [ProducesResponseType(typeof(CreateGameSessionResponse), StatusCodes.Status200OK)]
@@ -58,30 +60,14 @@ public class SessionsController(
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<CreateGameSessionResponse>> CreateGameSession(
         [FromBody] CreateGameSessionRequest request,
-        [FromHeader(Name = "X-Device-Id")] string? deviceId,
-        [FromHeader(Name = "X-Timestamp")] string? timestamp,
-        [FromHeader(Name = "X-Nonce")] string? nonce,
-        [FromHeader(Name = "X-Signature")] string? signature,
         CancellationToken ct)
     {
 
-        var context = new MachineAuthContext(
-            DeviceIdHeader: deviceId,
-            TimestampHeader: timestamp,
-            NonceHeader: nonce,
-            SignatureHeader: signature,
-            HttpMethod: Request.Method,
-            RequestPath: Request.Path.Value ?? string.Empty,
-            RawBody: JsonSerializer.Serialize(request, JsonOpts));
+        var deviceId = HttpContext.GetAuthenticatedDeviceId();
 
-        var authResult = await authService.ValidateAsync(context, ct);
-        if (authResult is not MachineAuthResult.Success success)
-        {
-            return Unauthorized(new { message = "Machine authentification failed." });
-        }
-
+        
         var command = new CreateGameSessionCommand(
-            success.DeviceId,
+            deviceId,
             request.ModeCode,
             request.ClientVersion
         );
