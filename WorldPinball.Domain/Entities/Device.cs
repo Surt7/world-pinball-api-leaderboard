@@ -41,6 +41,7 @@ public class Device
     }
 
     public Guid DeviceId { get; private set; }
+    public Guid? OwnerUserId { get; private set; }
     public string SerialPhysical { get; private set; } = null!;
     public DeviceStatus Status { get; private set; } = DeviceStatus.Pending;
 
@@ -158,5 +159,20 @@ public class Device
     public void SetPublicKeyFingerprint(string fingerprint)
     {
         PublicKeyFingerprint = fingerprint;
+    }
+
+    public void AssignOwner(Guid ownerUserId)
+    {
+        if (ownerUserId == Guid.Empty)
+            throw new ArgumentException("Owner user ID cannot be empty.", nameof(ownerUserId));
+
+        OwnerUserId = ownerUserId;
+        UpdatedAtUtc = DateTime.UtcNow;
+    }
+
+    public void ReleaseOwner()
+    {
+        OwnerUserId = null;
+        UpdatedAtUtc = DateTime.UtcNow;
     }
 }

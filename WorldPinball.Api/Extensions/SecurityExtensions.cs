@@ -8,6 +8,7 @@ using Microsoft.IdentityModel.Tokens;
 using WorldPinball.Api.Security.Permissions;
 using WorldPinball.Infrastructure.Security.Authentification;
 using WorldPinball.Infrastructure.Security.Authorization;
+using Path = System.IO.Path;
 
 namespace WorldPinball.Api.Extensions;
 
@@ -110,6 +111,12 @@ public static class SecurityExtensions
             {
                 policy.AddAuthenticationSchemes(OperatorTokenAuthenticationHandler.SchemeName);
                 policy.Requirements.Add(new OperatorScopeRequirement("sessions"));
+            });
+            
+            options.AddPolicy("Operator:SoftwareSign", policy =>
+            {
+                policy.AddAuthenticationSchemes(OperatorTokenAuthenticationHandler.SchemeName);
+                policy.Requirements.Add(new OperatorScopeRequirement("software:sign"));
             });
             
             foreach (var permission in Enum.GetValues<Permission>())

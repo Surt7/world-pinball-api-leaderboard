@@ -1,0 +1,251 @@
+using System.Security.Claims;
+using Microsoft.AspNetCore.Http;
+using Microsoft.EntityFrameworkCore;
+using WorldPinball.Application.Features.Leaderboard.Public.Dtos;
+using WorldPinball.Application.Interfaces.Repositories;
+using WorldPinball.Domain.Entities;
+using WorldPinball.Domain.Enums;
+using WorldPinball.Infrastructure.Persistence;
+
+namespace WorldPinball.Api.GraphQL;
+
+// HotChocolate type configuration: ignores internal DomainEvents and internal relations
+public class ScoreEntryType : ObjectType<ScoreEntry>
+{
+    protected override void Configure(IObjectTypeDescriptor<ScoreEntry> descriptor)
+    {
+        descriptor.Ignore(s => s.DomainEvents);
+        descriptor.Ignore(s => s.Session);
+    }
+}
+
+// Security: Ignore internal nonces, idempotency keys, device pairings and enrollment tokens
+public class MachineType : ObjectType<Machine>
+{
+    protected override void Configure(IObjectTypeDescriptor<Machine> descriptor)
+    {
+        descriptor.Ignore(m => m.Nonce);
+        descriptor.Ignore(m => m.IdempotencyKey);
+        descriptor.Ignore(m => m.MachineDevices);
+        descriptor.Ignore(m => m.EnrollmentTokens);
+    }
+}
+
+public class UserProfileType : ObjectType<UserProfile>
+{
+    protected override void Configure(IObjectTypeDescriptor<UserProfile> descriptor)
+    {
+        // Publicly exposed fields only
+    }
+}
+
+public record ScoreStatsDto(int TotalGames, long BestScore);
+
+// DTO representing active session details for the logged-in player
+public record ActiveSessionDto(
+    Guid SessionId, 
+    string MachineName, 
+    string? ModeName, 
+    int SlotNumber, 
+    string State, 
+    DateTime StartedAtUtc
+);
+
+
+public class Query
+{
+    // Fast aggregate query: COUNT(*) and MAX(score) computed directly by PostgreSQL
+    public async Task<ScoreStatsDto> GetMyScoreStats(
+        string? modeCode,
+        [Service] AppDbContext db,
+        [Service] IHttpContextAccessor httpContextAccessor,
+        ClaimsPrincipal? claimsPrincipal)
+    {
+        var principal = claimsPrincipal ?? httpContextAccessor.HttpContext?.User;
+        var sub = principal?.FindFirst("sub")?.Value 
+               ?? principal?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+
+        if (string.IsNullOrEmpty(sub))
+        {
+            return new ScoreStatsDto(0, 0);
+        }
+
+        var query = db.ScoreEntries.AsNoTracking().Where(s => s.UserId == sub);
+
+        if (!string.IsNullOrEmpty(modeCode) && modeCode != "all")
+        {
+            query = query.Where(s => s.Mode.Code == modeCode.ToLower());
+        }
+
+        var total = await query.CountAsync();
+        var best = total > 0 ? await query.MaxAsync(s => s.Score) : 0;
+
+        return new ScoreStatsDto(total, best);
+    }
+
+    // 1. Tab Scores (Personal scores of the authenticated user with server-side pagination)
+    [UseProjection]
+    [UseFiltering]
+    [UseSorting]
+    public IQueryable<ScoreEntry> GetMyScores(
+        [Service] AppDbContext db,
+        [Service] IHttpContextAccessor httpContextAccessor,
+        ClaimsPrincipal? claimsPrincipal,
+        int skip = 0,
+        int take = 20)
+    {
+        var principal = claimsPrincipal ?? httpContextAccessor.HttpContext?.User;
+        var sub = principal?.FindFirst("sub")?.Value 
+               ?? principal?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+
+        if (string.IsNullOrEmpty(sub))
+        {
+            return Enumerable.Empty<ScoreEntry>().AsQueryable();
+        }
+
+        return db.ScoreEntries
+            .AsNoTracking()
+            .Where(s => s.UserId == sub)
+            .OrderByDescending(s => s.AchievedAtUtc)
+            .ThenByDescending(s => s.Score)
+            .Skip(skip)
+            .Take(take > 50 ? 50 : take);
+    }
+
+    // 2. Tab Leaderboard: global scores with pagination
+    [UseProjection]
+    [UseFiltering]
+    [UseSorting]
+    public IQueryable<ScoreEntry> GetScores(
+        [Service] AppDbContext db,
+        int skip = 0,
+        int take = 50)
+        => db.ScoreEntries
+             .AsNoTracking()
+             .OrderByDescending(s => s.Score)
+             .ThenByDescending(s => s.AchievedAtUtc)
+             .Skip(skip)
+             .Take(take > 100 ? 100 : take);
+
+    // 2. Tab Machines (Option A): returns only the active machines of the authenticated user's devices
+    // User -> Device (OwnerUserId) -> MachineDevice (IsActive) -> Machine
+    [UseProjection]
+    [UseFiltering]
+    [UseSorting]
+    public IQueryable<Machine> GetMachines(
+        [Service] AppDbContext db,
+        [Service] IHttpContextAccessor httpContextAccessor,
+        ClaimsPrincipal? claimsPrincipal)
+    {
+        var principal = claimsPrincipal ?? httpContextAccessor.HttpContext?.User;
+        var sub = principal?.FindFirst("sub")?.Value 
+               ?? principal?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+
+        if (Guid.TryParse(sub, out var userId))
+        {
+            return db.Devices
+                .AsNoTracking()
+                .Where(d => d.OwnerUserId == userId)
+                .SelectMany(d => d.MachineDevices.Where(md => md.IsActive).Select(md => md.Machine))
+                .OrderBy(m => m.DisplayName)
+                .ThenBy(m => m.MachineId)
+                .Take(50);
+        }
+
+        // When not authenticated, user owns 0 machines
+        return Enumerable.Empty<Machine>().AsQueryable();
+    }
+
+    // 3. Tab Profil: returns the profile of the authenticated user
+    [UseProjection]
+    [UseFiltering]
+    [UseSorting]
+    public IQueryable<UserProfile> GetProfiles(
+        [Service] AppDbContext db,
+        [Service] IHttpContextAccessor httpContextAccessor,
+        ClaimsPrincipal? claimsPrincipal)
+    {
+        var principal = claimsPrincipal ?? httpContextAccessor.HttpContext?.User;
+        var sub = principal?.FindFirst("sub")?.Value 
+               ?? principal?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+
+        if (Guid.TryParse(sub, out var userId))
+        {
+            return db.Set<UserProfile>()
+                .AsNoTracking()
+                .Where(p => p.UserId == userId);
+        }
+
+        return db.Set<UserProfile>()
+            .AsNoTracking()
+            .Where(p => p.IsProfilePublic)
+            .OrderBy(p => p.DisplayName)
+            .ThenBy(p => p.UserId)
+            .Take(50);
+    }
+    
+    
+    
+    
+    public async Task<ActiveSessionDto?> GetMyActiveSessionAsync(
+        [Service] AppDbContext db,
+        [Service] IHttpContextAccessor httpContextAccessor,
+        ClaimsPrincipal? claimsPrincipal)
+    {
+        // 1. Resolve authenticated user ID from JWT token claims
+        var principal = claimsPrincipal ?? httpContextAccessor.HttpContext?.User;
+        var sub = principal?.FindFirst("sub")?.Value 
+                  ?? principal?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        
+        
+        if (string.IsNullOrWhiteSpace(sub) || !Guid.TryParse(sub, out var userId))
+        {
+            return null; // Anonymous users cannot have active game sessions
+        }
+        
+        
+        // 2. Query active session where user is currently registered as a player
+        var entry = await db.GameSessionPlayers
+            .Include(p => p.Session)
+            .ThenInclude(s => s.Machine)
+            .Include(p => p.Session)
+            .ThenInclude(s => s.Mode)
+            .Where(p => p.UserId == userId)
+            .Where(p => p.Session.State != GameSessionState.Ended 
+                        && p.Session.State != GameSessionState.Cancelled)
+            .OrderByDescending(p => p.JoinedAtUtc)
+            .FirstOrDefaultAsync();
+        
+        
+        if (entry == null || entry.Session == null)
+        {
+            return null; // No live active game found
+        }
+        
+        var session = entry.Session;
+        var machineName = session.Machine?.DisplayName ?? "Pinball Machine";
+        var modeName = session.Mode?.Name;
+        return new ActiveSessionDto(
+            session.SessionId,
+            machineName,
+            modeName,
+            entry.SlotNumber,
+            session.State.ToString(),
+            session.StartedAtUtc
+        );
+    }
+    
+    // Fast ranked leaderboard computed with PostgreSQL Window Functions (DENSE_RANK, LAG, FIRST_VALUE)
+    public async Task<IReadOnlyList<LeaderboardRowDto>> GetLeaderboard(
+        [Service] ILeaderboardReadRepository repository,
+        Guid? ipId = null,
+        Guid? modeId = null,
+        string? ipSlug = null,
+        string? modeCode = null,
+        int limit = 50,
+        int skip = 0,
+        CancellationToken ct = default)
+    {
+        return await repository.GetLeaderboardAsync(ipId, modeId, ipSlug, modeCode, limit, skip, ct);
+    }
+}

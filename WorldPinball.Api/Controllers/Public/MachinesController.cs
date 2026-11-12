@@ -11,8 +11,8 @@ namespace WorldPinball.Api.Controllers.Public;
 [ApiController]
 [Route("api/v1/machines")]
 public class MachinesController(
-    IEnrollDeviceHandler enrollHandler,
-    IValidator<EnrollDeviceRequest> validator) : ControllerBase
+    IEnrollDeviceHandler enrollHandler
+    ) : ControllerBase
 {
     [HttpPost("enroll")]
     [Authorize(Policy = "Operator:Enroll")]
@@ -25,16 +25,7 @@ public class MachinesController(
         [FromBody] EnrollDeviceRequest request,
         CancellationToken ct)
     {
-        var validationResult = await validator.ValidateAsync(request, ct);
-        if (!validationResult.IsValid)
-        {
-            foreach (var failure in validationResult.Errors)
-            {
-                ModelState.AddModelError(failure.PropertyName, failure.ErrorMessage);
-            }
-            return ValidationProblem(ModelState);
-        }
-
+        
         var command = new EnrollDeviceCommand(
             request.MachineId,
             request.PlainEnrollmentToken,

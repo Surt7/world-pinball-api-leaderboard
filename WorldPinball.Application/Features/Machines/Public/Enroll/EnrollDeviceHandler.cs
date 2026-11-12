@@ -44,7 +44,6 @@ public sealed class EnrollDeviceHandler(
     private static readonly EventId MachineStatusChanged =
         new(2109, nameof(MachineStatusChanged));
     
-    
     public async Task<EnrollDeviceResult> HandleAsync(
         EnrollDeviceCommand cmd,
         CancellationToken ct = default)
@@ -88,7 +87,6 @@ public sealed class EnrollDeviceHandler(
             return new EnrollDeviceResult.InvalidToken("Token not found");
         }
 
-
         if (token.MachineId != cmd.MachineId)
         {
             logger.LogWarning(
@@ -122,7 +120,7 @@ public sealed class EnrollDeviceHandler(
 
         try
         {
-            token.Consume(device.DeviceId, now);
+            token.Consume( now,device.DeviceId);
         }
         catch (InvalidOperationException ex)
         {
@@ -133,7 +131,6 @@ public sealed class EnrollDeviceHandler(
                 ex.Message);
             return new EnrollDeviceResult.InvalidToken(ex.Message);
         }
-        
         
         var machine = await machineWriteRepository.GetByIdAsync(cmd.MachineId,ct);
         if (machine is null)
@@ -166,6 +163,24 @@ public sealed class EnrollDeviceHandler(
             cmd.DeviceSerialNumber,
             cmd.PublicKeyPem,
             ct);
+
+        var activeCa = await deviceEnrollmentReadRepository.GetActiveCaAsync(ct);
+        var caId = activeCa?.CaId ?? Guid.NewGuid();
+
+        var deviceCert = new DeviceCertificate(
+            deviceId: device.DeviceId,
+            caId: caId,
+            certSerialNumber: issuedCert.SerialNumber,
+            certThumbprintSha256: issuedCert.ThumbprintSha256,
+            subjectDn: issuedCert.SubjectDn,
+            issuerDn: issuedCert.IssuerDn,
+            certPem: issuedCert.CertPem,
+            notBeforeUtc: issuedCert.NotBeforeUtc,
+            notAfterUtc: issuedCert.NotAfterUtc,
+            issuedAtUtc: now
+        );
+
+        await deviceEnrollmentWriteRepository.SaveCertificateAsync(deviceCert, ct);
         
         logger.LogInformation(
             MachineStatusChanged,
@@ -175,11 +190,11 @@ public sealed class EnrollDeviceHandler(
         
         logger.LogInformation(
             DeviceEnrolled,
-            "Device {DeviceId} (serial: {DeviceSerialNumber}) enrolled and attached to machine {MachineId} with CertSerial {CertSerial}.",
+            "Device {DeviceId} (serial: {DeviceSerialNumber}) enrolled, certificate {CertSerial} persisted and attached to machine {MachineId}.",
             device.DeviceId,
             cmd.DeviceSerialNumber,
-            cmd.MachineId,
-            issuedCert.SerialNumber);
+            issuedCert.SerialNumber,
+            cmd.MachineId);
 
         return new EnrollDeviceResult.Success(
             DeviceId: device.DeviceId,

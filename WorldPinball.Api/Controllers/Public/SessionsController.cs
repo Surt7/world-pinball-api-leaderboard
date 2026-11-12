@@ -1,8 +1,9 @@
 using System.Text.Json;
-using FluentValidation;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using WorldPinball.Api.Contracts.Sessions;
+using WorldPinball.Api.Extensions;
+using WorldPinball.Api.Filters.Security;
 using WorldPinball.Application.Features.GameSessions.Public.AbortSession;
 using WorldPinball.Application.Features.GameSessions.Public.AbortSession.Commands;
 using WorldPinball.Application.Features.GameSessions.Public.AddPlayer;
@@ -28,7 +29,6 @@ namespace WorldPinball.Api.Controllers.Public;
 [ApiController]
 [Route("api/v1/sessions")]
 public class SessionsController(
-    IMachineAuthService authService,
     ICreateGameSessionHandler createGameSessionHandler,
     ISubmitScoreHandler submitScoreHandler,
     IAbortSessionHandler abortSessionHandler,
@@ -36,9 +36,6 @@ public class SessionsController(
     IAddPlayerHandler addPlayerHandler,
     IKickPlayerHandler kickPlayerHandler,
     ILaunchSessionHandler launchSessionHandler,
-    IValidator<CreateGameSessionRequest> requestValidator,
-    IValidator<SubmitScoreRequest> reqValidator,
-    IValidator<AddPlayerRequest> addPlayerValidator,
     ILobbyNotificationService lobbyNotifier,
     IGameSessionWriteRepository sessionRepository,
     IAuthorizationService authorization
@@ -54,6 +51,7 @@ public class SessionsController(
   
     
     [HttpPost("create")]
+    [RequireMachineSignature] 
     [EndpointSummary("Create a game session")]
     [EndpointDescription("POST to create new game session")]
     [ProducesResponseType(typeof(CreateGameSessionResponse), StatusCodes.Status200OK)]
@@ -62,42 +60,14 @@ public class SessionsController(
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<CreateGameSessionResponse>> CreateGameSession(
         [FromBody] CreateGameSessionRequest request,
-        [FromHeader(Name = "X-Device-Id")] string? deviceId,
-        [FromHeader(Name = "X-Timestamp")] string? timestamp,
-        [FromHeader(Name = "X-Nonce")] string? nonce,
-        [FromHeader(Name = "X-Signature")] string? signature,
         CancellationToken ct)
     {
-        var validationResult = await requestValidator.ValidateAsync(request, ct);
-        if (!validationResult.IsValid)
-        {
-            foreach (var failure in validationResult.Errors)
-            {
-                ModelState.AddModelError(
-                    failure.PropertyName,
-                    failure.ErrorMessage);
-            }
 
-            return ValidationProblem(ModelState);
-        }
+        var deviceId = HttpContext.GetAuthenticatedDeviceId();
 
-        var context = new MachineAuthContext(
-            DeviceIdHeader: deviceId,
-            TimestampHeader: timestamp,
-            NonceHeader: nonce,
-            SignatureHeader: signature,
-            HttpMethod: Request.Method,
-            RequestPath: Request.Path.Value ?? string.Empty,
-            RawBody: JsonSerializer.Serialize(request, JsonOpts));
-
-        var authResult = await authService.ValidateAsync(context, ct);
-        if (authResult is not MachineAuthResult.Success success)
-        {
-            return Unauthorized(new { message = "Machine authentification failed." });
-        }
-
+        
         var command = new CreateGameSessionCommand(
-            success.DeviceId,
+            deviceId,
             request.ModeCode,
             request.ClientVersion
         );
@@ -165,15 +135,6 @@ public class SessionsController(
         [FromBody] AddPlayerRequest request,
         CancellationToken ct)
     {
-        var validationResult = await addPlayerValidator.ValidateAsync(request, ct);
-        if (!validationResult.IsValid)
-        {
-            foreach (var failure in validationResult.Errors)
-            {
-                ModelState.AddModelError(failure.PropertyName, failure.ErrorMessage);
-            }
-            return ValidationProblem(ModelState);
-        }
 
         var command = new AddPlayerCommand(
             sessionId,
@@ -291,18 +252,6 @@ public class SessionsController(
         [FromBody] SubmitScoreRequest request,
         CancellationToken ct)
     {
-        var validationResult = await reqValidator.ValidateAsync(request, ct);
-        if (!validationResult.IsValid)
-        {
-            foreach (var failure in validationResult.Errors)
-            {
-                ModelState.AddModelError(
-                    failure.PropertyName,
-                    failure.ErrorMessage);
-            }
-
-            return ValidationProblem(ModelState);
-        }
 
         var command = new SubmitScoreCommand(
             sessionId,

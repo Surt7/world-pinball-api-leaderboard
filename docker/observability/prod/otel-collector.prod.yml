@@ -11,6 +11,26 @@ processors:
     timeout: 2s
     send_batch_size: 1024
 
+  tail_sampling:
+    decision_wait: 5s
+    num_traces: 50000
+    expected_new_traces_per_sec: 500
+    policies:
+      # Policy 1: Always keep 100% of error traces
+      - name: drop-no-errors
+        type: status_code
+        status_code: { status_codes: [ERROR] }
+
+      # Policy 2: Always keep 100% of slow traces (> 1000ms)
+      - name: slow-traces-policy
+        type: latency
+        latency: { threshold_ms: 1000 }
+
+      # Policy 3: Keep 1% sample of normal successful production traffic
+      - name: probabilistic-sampling
+        type: probabilistic
+        probabilistic: { sampling_percentage: 1 }
+
 exporters:
   otlp/tempo:
     endpoint: tempo:4317
@@ -27,7 +47,7 @@ service:
   pipelines:
     traces:
       receivers: [otlp]
-      processors: [batch]
+      processors: [tail_sampling, batch]
       exporters: [otlp/tempo]
 
     metrics:

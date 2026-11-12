@@ -1,10 +1,9 @@
-﻿
-
-namespace WorldPinball.Application.Features.GameSessions.Public.GetLobby.Dtos;
+﻿namespace WorldPinball.Application.Features.GameSessions.Public.GetLobby.Dtos;
 
 public sealed record LobbySlotDto(
     int SlotNumber,
     bool IsOccupied,
+    GameSlotStatus Status,
     Guid? UserId = null,
     string? GuestInitials = null
 );

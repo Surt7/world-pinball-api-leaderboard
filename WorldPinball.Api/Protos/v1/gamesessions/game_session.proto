@@ -4,6 +4,12 @@ package worldpinball.gamesessions.v1;
 option csharp_namespace = "WorldPinball.Protos.V1.GameSessions";
 option go_package = "SetSecrets/internal/proto/gamesession";
 
+enum SlotStatus {
+  SLOT_STATUS_OPEN = 0;
+  SLOT_STATUS_OCCUPIED = 1;
+  SLOT_STATUS_LOCKED = 2;
+}
+
 
 // Add player action
 message AddPlayerRequest {
@@ -39,6 +45,7 @@ message PlayerSlotInfo {
   bool is_occupied = 2;
   optional string user_id = 3;
   optional string guest_initials = 4;
+  SlotStatus status = 5;
 }
 
 message GetLobbyRequest {

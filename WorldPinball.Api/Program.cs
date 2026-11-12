@@ -1,3 +1,4 @@
+using WorldPinball.Application.Features.Machines.Admin.GetMachineSecurity;
 using Serilog;
 using WorldPinball.Api.Extensions;
 using WorldPinball.Api.Logging;
@@ -44,6 +45,13 @@ using WorldPinball.Application.Features.Roles.Admin.RevokePermission;
 using WorldPinball.Application.Interfaces.Services;
 using WorldPinball.Infrastructure.Services;
 using System.Security.Cryptography.X509Certificates;
+using WorldPinball.Api.GraphQL;
+using WorldPinball.Application.Features.Certificates.Admin.IssueSoftwareCertificate;
+using WorldPinball.Application.Features.Machines.Admin.GetPagedMachines;
+using WorldPinball.Application.Features.Workstations.Admin.CreateBootstrapToken;
+using WorldPinball.Application.Features.Workstations.Public.EnrollWorkstation;
+using Path = System.IO.Path;
+
 
 // -------------------- BUILDER -------------------- BUILDER -------------------- BUILDER --------------------//
 
@@ -71,25 +79,19 @@ try
             keyPath = Path.Combine(builder.Environment.ContentRootPath, "..", "docker", "nginx", "certs", "worldpinball.local.key");
         }
         
-        // Production-grade HTTPS port with ALPN (handles both HTTP/1.1 and HTTP/2 simultaneously)
-        options.ListenAnyIP(8443, listenOptions =>
+        // Configure protocols for all endpoints (HTTP/1.1 and HTTP/2)
+        options.ConfigureEndpointDefaults(listenOptions =>
         {
             listenOptions.Protocols = Microsoft.AspNetCore.Server.Kestrel.Core.HttpProtocols.Http1AndHttp2;
-            if (File.Exists(certPath) && File.Exists(keyPath))
-            {
-                var serverCertificate = X509Certificate2.CreateFromPemFile(certPath, keyPath);
-                listenOptions.UseHttps(serverCertificate);
-            }
-            else
-            {
-                listenOptions.UseHttps();
-            }
         });
-        
- 
-        // Allow optional client certificates (mTLS support for enrolled pinball machines)
+
+        // Configure default HTTPS settings (certificate, ALPN, optional client mTLS)
         options.ConfigureHttpsDefaults(httpsOptions =>
         {
+            if (File.Exists(certPath) && File.Exists(keyPath))
+            {
+                httpsOptions.ServerCertificate = X509Certificate2.CreateFromPemFile(certPath, keyPath);
+            }
             httpsOptions.ClientCertificateMode = ClientCertificateMode.AllowCertificate;
             httpsOptions.ClientCertificateValidation = (certificate, chain, sslPolicyErrors) => true;
         });
@@ -130,7 +132,14 @@ try
     builder.Services.AddWorldPinballLocalization();
 
 
-    builder.Services.AddControllers();
+    builder.Services.AddControllers(options =>
+    {
+        // Automatically executes FluentValidation on incoming action arguments
+        options.Filters.Add<WorldPinball.Api.Filters.ModelBindingValidation.ValidationFilter>();
+    });
+    
+    
+    builder.Services.AddHttpContextAccessor();
     builder.Services.AddEndpointsApiExplorer();
 
     // Grpc
@@ -161,6 +170,7 @@ try
 
     builder.Services.AddScoped<IGetMachineDashboardHandler, GetMachineDashboardHandler>();
     builder.Services.AddScoped<IGetAllMachinesHandler, GetAllMachinesHandler>();
+    builder.Services.AddScoped<IGetMachineSecurityHandler, GetMachineSecurityHandler>();
     builder.Services.AddScoped<IGetAllGameModesHandler, GetAllGameModesHandler>();
     builder.Services.AddScoped<IGetAllIpLicensesHandler, GetAllIpLicensesHandler>();
     builder.Services.AddScoped<IJoinMatchmakingQueueHandler, JoinMatchmakingQueueHandler>();
@@ -175,8 +185,28 @@ try
     builder.Services.AddScoped<ICreateStreamAccessGrantHandler, CreateStreamAccessGrantHandler>();
     builder.Services.AddScoped<IGrantPermissionToRoleHandler, GrantPermissionToRoleHandler>();
     builder.Services.AddScoped<IRevokePermissionFromRoleHandler, RevokePermissionFromRoleHandler>();
+    builder.Services.AddScoped<IGetPagedMachinesHandler, GetPagedMachinesHandler>();
 
+    //graphQL
+    var gqlBuilder = builder.Services
+        .AddGraphQLServer()
+        .AddQueryType<Query>()
+        .AddMutationType<Mutation>()
+        .AddType<ScoreEntryType>()
+        .AddType<MachineType>()
+        .AddType<UserProfileType>()
+        .AddProjections()
+        .AddFiltering()
+        .AddSorting()
 
+        .AddMaxExecutionDepthRule(8);
+
+    // Production security: disable schema introspection outside Dev / Staging
+    if (!builder.Environment.IsDevelopment() && !builder.Environment.IsEnvironment("Staging"))
+    {
+        gqlBuilder.DisableIntrospection();
+    }
+    
     // Security
     builder.Services.AddScoped<IMachineAuthService, MachineAuthService>();
     builder.Services.AddScoped<ICanonicalBuilder, CanonicalBuilder>();
@@ -185,8 +215,11 @@ try
         EcdsaP256SignatureVerifier>();
     builder.Services.AddScoped<GetLeaderboardHandler>();
   
-
-
+    builder.Services.AddScoped<IIssueSoftwareCertificateHandler, IssueSoftwareCertificateHandler>();
+    builder.Services.AddScoped<ICreateBootstrapTokenHandler, CreateBootstrapTokenHandler>();
+    builder.Services.AddScoped<IEnrollWorkstationHandler, EnrollWorkstationHandler>();
+    
+    
     //Validators
     builder.Services.AddValidatorsFromAssemblyContaining<Program>();
 
@@ -213,6 +246,19 @@ try
     
     app.UseForwardedHeadersForReverseProxy();
     
+    // GraphQL endpoint: enable Nitro IDE in dev/staging, disable web tool in production
+    if (app.Environment.IsDevelopment() || app.Environment.IsStaging())
+    {
+        app.MapGraphQL();
+    }
+    else
+    {
+        app.MapGraphQL().WithOptions(opt =>
+        {
+            opt.Tool.Enable = false;
+        });
+    } 
+    
     
     if (app.Environment.IsDevelopment() || app.Environment.IsStaging() || app.Configuration.GetValue<bool>("DOTNET_RUN_MIGRATIONS"))
     {
@@ -222,7 +268,7 @@ try
     if (app.Environment.IsDevelopment() || app.Environment.IsStaging())
     {
         await app.Services.SeedDevelopmentDataAsync();
-
+        
         app.UseDeveloperExceptionPage();
         app.UseWorldPinballApiDocumentation();
 

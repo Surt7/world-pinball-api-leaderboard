@@ -1,16 +1,8 @@
-﻿using System.Security.Cryptography;
+using System.Security.Cryptography;
 using System.Text;
+using WorldPinball.Application.Security.Cryptography;
 
 namespace WorldPinball.Infrastructure.Security.Cryptography;
-
-public interface ICanonicalBuilder
-{
-    /// <summary>
-    /// Build the canonical string bytes that will be signed/verified.
-    /// Format: {ts}.{nonce}.{METHOD}.{path}.{bodySha256HexLower}
-    /// </summary>
-    byte[] Build(long ts, string nonce, string method, string path, string rawBody);
-}
 
 public sealed class CanonicalBuilder : ICanonicalBuilder
 {

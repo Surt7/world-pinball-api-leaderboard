@@ -90,6 +90,14 @@ public static class DevelopmentDataSeeder
             if (devices.Count == 0)
             {
                 devices = CreateDevices(now);
+                if (devices.Count > 0)
+                {
+                    devices[0].AssignOwner(Guid.Parse("a2c66552-2b07-42cb-9814-0f5abacfd902"));
+                }
+                if (devices.Count > 1)
+                {
+                    devices[1].AssignOwner(Guid.Parse("a2c66552-2b07-42cb-9814-0f5abacfd902"));
+                }
                 await context.Devices.AddRangeAsync(devices, cancellationToken);
             }
 
@@ -167,6 +175,19 @@ public static class DevelopmentDataSeeder
             {
                 var defaultRolePermissions = CreateRolePermissions();
                 await context.RolePermissions.AddRangeAsync(defaultRolePermissions, cancellationToken);
+            }
+
+            if (!await context.Set<UserProfile>().AnyAsync(cancellationToken))
+            {
+                var player1Profile = new UserProfile(
+                    Guid.Parse("a2c66552-2b07-42cb-9814-0f5abacfd902"),
+                    displayName: "Philippe",
+                    initials: "PHI",
+                    avatarUrl: string.Empty,
+                    countryCode: "FR",
+                    isProfilePublic: true,
+                    createdAtUtc: now);
+                await context.Set<UserProfile>().AddAsync(player1Profile, cancellationToken);
             }
             
             foreach (var machine in context.ChangeTracker
@@ -461,6 +482,10 @@ public static class DevelopmentDataSeeder
             .CustomInstantiator(f =>
             {
                 var session = sessions[f.IndexFaker];
+                var assignedUserId = (f.IndexFaker % 4 == 0)
+                    ? "a2c66552-2b07-42cb-9814-0f5abacfd902"
+                    : $"development-user-{(f.IndexFaker % 12) + 1:00}";
+
                 var score = new ScoreEntry(
                     session.SessionId,
                     1,
@@ -470,7 +495,7 @@ public static class DevelopmentDataSeeder
                     session.ModeId,
                     f.Random.Int(10_000, 25_000_000),
                     session.EndedAtUtc ?? now,
-                    $"development-user-{(f.IndexFaker % 12) + 1:00}");
+                    assignedUserId);
 
                 if (f.IndexFaker % 12 == 0)
                 {

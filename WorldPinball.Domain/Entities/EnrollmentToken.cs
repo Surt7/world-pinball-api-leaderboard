@@ -102,26 +102,26 @@ public class EnrollmentToken
         UsesCount = 0;
     }
 
-    public void Consume(Guid deviceId, DateTime now)
+    public void Consume(DateTime now, Guid? deviceId = null)
     {
-        if (deviceId == Guid.Empty)
+        // Guard clause: if a deviceId is explicitly provided, it cannot be empty (0000...)
+        if (deviceId.HasValue && deviceId.Value == Guid.Empty)
             throw new ArgumentException(ErrorMessages.InvalidDeviceId, nameof(deviceId));
-
+        
         if (now == default)
             throw new ArgumentException(ErrorMessages.InvalidDate, nameof(now));
-
+        
         if (RevokedAt is not null) 
             throw new InvalidOperationException(ErrorMessages.RevokedAt);
-
+        
         if (now >= ExpiresAtUtc) 
             throw new InvalidOperationException(ErrorMessages.ExpiredAt);
-
+        
         if (UsesCount >= MaxUses) 
             throw new InvalidOperationException(ErrorMessages.AlreadyConsumed);
-
-        if (DeviceId.HasValue && deviceId != DeviceId)
+        
+        if (DeviceId.HasValue && deviceId.HasValue && deviceId != DeviceId)
             throw new InvalidOperationException(ErrorMessages.DifferentDevice);
-
         UsesCount++;
         ConsumedAtUtc ??= now;
         ConsumedByDeviceId = deviceId;

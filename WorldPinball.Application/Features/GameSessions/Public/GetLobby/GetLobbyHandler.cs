@@ -8,18 +8,17 @@ namespace WorldPinball.Application.Features.GameSessions.Public.GetLobby;
 public sealed class GetLobbyHandler(
     IGameSessionReadRepository readRepository,
     ILogger<GetLobbyHandler> logger
-    ):IGetLobbyHandler
+) : IGetLobbyHandler
 {
-    
     private static readonly EventId SessionNotFound = new EventId(2700, nameof(SessionNotFound));
-    
+
     public async Task<GetLobbyResult> HandleAsync(GetLobbyQuery query, CancellationToken cancellationToken = default)
     {
         var session = await readRepository.GetSessionForLobbyAsync(
             query.SessionId,
             cancellationToken);
 
-        
+
         if (session is null)
         {
             logger.LogWarning(
@@ -28,20 +27,16 @@ public sealed class GetLobbyHandler(
                 query.SessionId);
             return new GetLobbyResult.SessionNotFound(query.SessionId);
         }
-        
-        
-        var slots = new List<LobbySlotDto>(4);
-        for (int i = 1; i <= 4; i++)
-        {
-            var player = session.Players.FirstOrDefault(p => p.SlotNumber == i);
-            slots.Add(new LobbySlotDto(
-                SlotNumber: i,
-                IsOccupied: player is not null,
-                UserId: player?.UserId,
-                GuestInitials: player?.GuestInitials
-            ));
-        }
-        
+
+
+        var slots = session.Slots.Select(slot => new LobbySlotDto(
+            SlotNumber: slot.SlotNumber,
+            IsOccupied: slot.Status == GameSlotStatus.Occupied,
+            Status: slot.Status,
+            UserId: slot.UserId,
+            GuestInitials: slot.GuestInitials
+        )).ToList();
+
         var lobbyDto = new SessionLobbyDto(
             session.SessionId,
             session.State.ToString(),

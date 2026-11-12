@@ -1,4 +1,4 @@
-﻿using FluentAssertions;
+using FluentAssertions;
 using WorldPinball.Logistics.Domain.Entities;
 using WorldPinball.Logistics.Domain.Enums;
 using WorldPinball.Logistics.Domain.Events;
@@ -100,5 +100,39 @@ public class ShipmentTests
         shipment.DomainEvents.OfType<ShipmentCancelledDomainEvent>()
             .Should().ContainSingle()
             .Which.Reason.Should().Be(reason);
+    }
+
+
+    [Fact]
+    public void Deliver_WhenDelivered_ShouldRaiseShipmentDeliveredDomainEvent()
+    {
+        // Arrange
+        var shipment = Shipment.Create("WC-98421", "1610 W Carroll Ave, Chicago, IL 60612, USA");
+        shipment.AllocateMachine(Guid.NewGuid());
+        shipment.Dispatch("FREIGHT-US-99482");
+        // Act
+        shipment.Deliver();
+        var orderId = shipment.OrderId;
+        
+        shipment.DomainEvents.OfType<ShipmentDeliveredDomainEvent>()
+            .Should().ContainSingle()
+            .Which.OrderId.Should().Be(orderId);
+    }
+    
+    [Fact]
+    public void Dispatch_WhenDispatch_ShouldRaiseShipmentDispatchedDomainEvent()
+    {
+        // Arrange
+        var shipment = Shipment.Create("WC-98421", "1610 W Carroll Ave, Chicago, IL 60612, USA");
+        shipment.AllocateMachine(Guid.NewGuid());
+        var trackingNumber = "FREIGHT-US-99482";
+        
+        // Act
+        shipment.Dispatch(trackingNumber);
+        
+        // Assert
+        shipment.DomainEvents.OfType<ShipmentDispatchedDomainEvent>()
+            .Should().ContainSingle()
+            .Which.TrackingNumber.Should().Be(trackingNumber);
     }
 }

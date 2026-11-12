@@ -67,6 +67,8 @@ public class Shipment:Entity
         
         TrackingNumber = trackingNumber.Trim();
         Status = ShipmentStatus.InTransit;
+        
+        AddDomainEvent(new ShipmentDispatchedDomainEvent(ShipmentId, OrderId, TrackingNumber));
     }
     
     public void Cancel(string reason)
@@ -89,5 +91,7 @@ public class Shipment:Entity
         if (Status != ShipmentStatus.InTransit)
             throw new InvalidOperationException(ErrorMessages.CannotDeliverUnlessInTransit);
         Status = ShipmentStatus.Delivered;
+        
+        AddDomainEvent(new ShipmentDeliveredDomainEvent(ShipmentId, OrderId));
     }
 }

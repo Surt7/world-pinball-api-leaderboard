@@ -27,6 +27,9 @@ using WorldPinball.Infrastructure.Services.KafkaConsumers;
 using WorldPinball.Infrastructure.Services.KafkaProducers;
 using WorldPinball.Infrastructure.Services.Outbox;
 using WorldPinball.Infrastructure.Services.Redis;
+using WorldPinball.Application.Security.Cryptography;
+using WorldPinball.Infrastructure.Security.Cryptography;
+
 
 namespace WorldPinball.Infrastructure;
 
@@ -51,6 +54,7 @@ public static class DependencyInjection
             options
                 .UseNpgsql(cs)
                 .UseSnakeCaseNamingConvention()
+                .ConfigureWarnings(w => w.Ignore(Microsoft.EntityFrameworkCore.Diagnostics.RelationalEventId.PendingModelChangesWarning))
                 .AddInterceptors(
                     sp.GetRequiredService<ConvertDomainEventsToOutboxMessagesInterceptor>()
                     ));
@@ -65,6 +69,9 @@ public static class DependencyInjection
         // -------------------- Repositories registering --------------------
         // Security crypto
         services.AddScoped<ISecretService, SecretService>();
+        // ECDSA P-256 Signer for cross-service authentication
+        services.AddSingleton<ISignatureSigner, EcdsaP256SignatureSigner>();
+        services.AddSingleton<IPublicKeyResolver, CertificatePublicKeyResolver>();
         
         // Business repo
         services.AddScoped<IIpLicenseReadRepository, IpLicenseReadRepository>();

@@ -10,6 +10,8 @@
   <ItemGroup>
     <PackageReference Include="FluentValidation" Version="12.1.1" />
     <PackageReference Include="FluentValidation.DependencyInjectionExtensions" Version="12.1.1" />
+    <PackageReference Include="HotChocolate.AspNetCore" Version="16.7.1" />
+    <PackageReference Include="HotChocolate.Data.EntityFramework" Version="16.7.1" />
     <PackageReference Include="Microsoft.AspNetCore.Authentication.Certificate" Version="10.0.12" />
     <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.10" />
     <PackageReference Include="Microsoft.AspNetCore.DataProtection.StackExchangeRedis" Version="10.0.13" />

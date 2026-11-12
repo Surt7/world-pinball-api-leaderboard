@@ -1,4 +1,4 @@
-﻿
+
 
 using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
@@ -55,7 +55,7 @@ public class LogisticsOutboxProcessorTests
         
         // Assert
         await _publisher.Received(1).PublishAsync(
-            "logistics-shipments", 
+            "logistics.shipments.ShipmentCancelledDomainEvent", 
             message.Id.ToString(),
             message.Content,
             Arg.Any<CancellationToken>());

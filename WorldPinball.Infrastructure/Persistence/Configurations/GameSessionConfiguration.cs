@@ -54,6 +54,8 @@ namespace WorldPinball.Infrastructure.Persistence.Configurations
              .WithMany()
              .HasForeignKey(x => x.ModeId)
              .OnDelete(DeleteBehavior.Restrict);
+
+            e.Ignore(x => x.Slots);
         }
     }
 }

@@ -11,8 +11,14 @@
     </PropertyGroup>
 
     <ItemGroup>
-      <ProjectReference Include="..\..\WorldPinball.Api\WorldPinball.Api.csproj" />
-      <ProjectReference Include="..\..\WorldPinball.Bff\WorldPinball.Bff.csproj" />
+        <ProjectReference Include="..\..\WorldPinball.Api\WorldPinball.Api.csproj"/>
+        <ProjectReference Include="..\..\WorldPinball.Bff\WorldPinball.Bff.csproj"/>
+    </ItemGroup>
+
+    <ItemGroup>
+        <PackageReference Include="Aspire.Hosting.AppHost" Version="13.6.4" />
+        <PackageReference Include="HotChocolate.AspNetCore" Version="16.7.1" />
+        <PackageReference Include="HotChocolate.Data.EntityFramework" Version="16.7.1" />
     </ItemGroup>
 
 </Project>

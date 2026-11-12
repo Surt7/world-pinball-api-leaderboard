@@ -16,7 +16,13 @@ using WorldPinball.Application.Features.Machines.Admin.Provision.Commands;
 using WorldPinball.Application.Features.Machines.Admin.ReissueToken;
 using WorldPinball.Application.Features.Machines.Admin.GetAllMachines;
 using WorldPinball.Application.Features.Machines.Admin.GetAllMachines.Queries;
+using WorldPinball.Application.Features.Machines.Admin.GetMachineSecurity;
+using WorldPinball.Application.Features.Machines.Admin.GetMachineSecurity.Dtos;
+using WorldPinball.Application.Features.Machines.Admin.GetMachineSecurity.Queries;
 using WorldPinball.Application.Features.Machines.Admin.Provision.Dtos;
+using WorldPinball.Application.Features.Machines.Admin.GetPagedMachines;
+using WorldPinball.Application.Features.Machines.Admin.GetPagedMachines.Queries;
+using WorldPinball.Application.DTOs;
 using WorldPinball.Domain.Enums;
 
 namespace WorldPinball.Tests.Controller;
@@ -57,7 +63,7 @@ public class AdminMachinesControllerTests
 
         // create controller
         var reissueHandler = Substitute.For<IReissueEnrollmentTokenHandler>();
-        var controller = new AdminMachinesController(handler, reissueHandler, validator);
+        var controller = new AdminMachinesController(handler, reissueHandler);
         controller.ControllerContext = new ControllerContext
         {
             HttpContext = new DefaultHttpContext
@@ -108,8 +114,7 @@ public class AdminMachinesControllerTests
         
         var controller = new AdminMachinesController(
             Substitute.For<IProvisionMachineHandler>(),
-            Substitute.For<IReissueEnrollmentTokenHandler>(),
-            Substitute.For<IValidator<ProvisionMachineRequest>>());
+            Substitute.For<IReissueEnrollmentTokenHandler>());
         var handler = Substitute.For<IGetMachineDashboardHandler>();
         
         handler.HandleAsync(
@@ -119,11 +124,9 @@ public class AdminMachinesControllerTests
         
         var result = await controller.GetDashboard(machineId, handler, CancellationToken.None);
         
-        
         result.Result.Should().BeOfType<OkObjectResult>()
             .Which.Value.Should().BeEquivalentTo(expectedDto);
     }
-    
     
     [Fact]
     public async Task GetDashboard_WhenMachineNotFound_ShouldReturnNotFound()
@@ -132,8 +135,7 @@ public class AdminMachinesControllerTests
         
         var controller = new AdminMachinesController(
             Substitute.For<IProvisionMachineHandler>(),
-            Substitute.For<IReissueEnrollmentTokenHandler>(),
-            Substitute.For<IValidator<ProvisionMachineRequest>>());
+            Substitute.For<IReissueEnrollmentTokenHandler>());
         var handler = Substitute.For<IGetMachineDashboardHandler>();
         
         handler.HandleAsync(
@@ -143,9 +145,7 @@ public class AdminMachinesControllerTests
         
         var result = await controller.GetDashboard(machineId, handler, CancellationToken.None);
 
-
         result.Result.Should().BeOfType<NotFoundObjectResult>();
-
     }
 
     [Fact]
@@ -154,8 +154,7 @@ public class AdminMachinesControllerTests
         // Arrange
         var controller = new AdminMachinesController(
             Substitute.For<IProvisionMachineHandler>(),
-            Substitute.For<IReissueEnrollmentTokenHandler>(),
-            Substitute.For<IValidator<ProvisionMachineRequest>>());
+            Substitute.For<IReissueEnrollmentTokenHandler>());
 
         var handler = Substitute.For<IGetAllMachinesHandler>();
         var machines = new List<MachineRowDto>
@@ -190,8 +189,7 @@ public class AdminMachinesControllerTests
         // Arrange
         var controller = new AdminMachinesController(
             Substitute.For<IProvisionMachineHandler>(),
-            Substitute.For<IReissueEnrollmentTokenHandler>(),
-            Substitute.For<IValidator<ProvisionMachineRequest>>());
+            Substitute.For<IReissueEnrollmentTokenHandler>());
 
         var handler = Substitute.For<IGetAllMachinesHandler>();
         handler.HandleAsync(Arg.Any<GetAllMachinesQuery>(), Arg.Any<CancellationToken>())
@@ -202,5 +200,173 @@ public class AdminMachinesControllerTests
 
         // Assert
         result.Result.Should().BeOfType<NotFoundObjectResult>();
+    }
+
+    [Fact]
+    public async Task GetMachineSecurity_WhenMachineExists_ShouldReturnOkWithSecurityDto()
+    {
+        // Arrange
+        var machineId = Guid.NewGuid();
+        var expectedDto = new MachineSecurityDto(
+            machineId,
+            "WP-00001",
+            "Attack From Mars",
+            1, // Active
+            HasAttachedDevice: true,
+            DeviceId: Guid.NewGuid(),
+            DevicePhysicalSerial: "TPM-AFM-01",
+            HasCertificate: true,
+            CertSerialNumber: "ABCD1234EF5678",
+            CertThumbprintSha256: "THUMBPRINT123",
+            SubjectDn: "CN=TPM-AFM-01",
+            IssuerDn: "CN=WorldPinball Intermediate CA",
+            NotBeforeUtc: DateTime.UtcNow.AddMonths(-1),
+            NotAfterUtc: DateTime.UtcNow.AddMonths(11),
+            CertStatus: 1,
+            IsExpired: false,
+            IsValid: true,
+            StatusExplanation: "Certificat matériel TPM valide et vérifié."
+        );
+
+        var controller = new AdminMachinesController(
+            Substitute.For<IProvisionMachineHandler>(),
+            Substitute.For<IReissueEnrollmentTokenHandler>());
+
+        var handler = Substitute.For<IGetMachineSecurityHandler>();
+        handler.HandleAsync(
+                Arg.Is<GetMachineSecurityQuery>(q => q.MachineId == machineId),
+                Arg.Any<CancellationToken>())
+            .Returns(new GetMachineSecurityResult.Success(expectedDto));
+
+        // Act
+        var result = await controller.GetMachineSecurity(machineId, handler, CancellationToken.None);
+
+        // Assert
+        var okResult = result.Result.Should().BeOfType<OkObjectResult>().Which;
+        okResult.Value.Should().BeEquivalentTo(expectedDto);
+    }
+
+    [Fact]
+    public async Task GetMachineSecurity_WhenMachineNotFound_ShouldReturnNotFound()
+    {
+        // Arrange
+        var machineId = Guid.NewGuid();
+
+        var controller = new AdminMachinesController(
+            Substitute.For<IProvisionMachineHandler>(),
+            Substitute.For<IReissueEnrollmentTokenHandler>());
+
+        var handler = Substitute.For<IGetMachineSecurityHandler>();
+        handler.HandleAsync(
+                Arg.Is<GetMachineSecurityQuery>(q => q.MachineId == machineId),
+                Arg.Any<CancellationToken>())
+            .Returns(new GetMachineSecurityResult.MachineNotFound(machineId));
+
+        // Act
+        var result = await controller.GetMachineSecurity(machineId, handler, CancellationToken.None);
+
+        // Assert
+        result.Result.Should().BeOfType<NotFoundObjectResult>();
+    }
+
+    [Fact]
+    public async Task GetPagedMachines_WhenHandlerReturnsSuccess_ShouldReturnOkWithPagedResponse()
+    {
+        // Arrange
+        var controller = new AdminMachinesController(
+            Substitute.For<IProvisionMachineHandler>(),
+            Substitute.For<IReissueEnrollmentTokenHandler>());
+
+        var pagedHandler = Substitute.For<IGetPagedMachinesHandler>();
+        var pageResponse = new PagedResponse<MachineRowDto>
+        {
+            Items =
+            [
+                new(Guid.NewGuid(), "Medieval Madness", "MM-01", MachineStatus.Active, "Arcade", DateTime.UtcNow, null, "SN-001")
+            ],
+            PageSize = 10,
+            TotalCount = 1,
+            PageNumber = 1,
+            HasNextPage = false,
+            HasPreviousPage = false,
+            Stats = new FleetStatsDto(1, 1, 0, 0, 0)
+        };
+
+        pagedHandler.HandleAsync(
+                Arg.Any<GetPagedMachinesQuery>(),
+                Arg.Any<CancellationToken>())
+            .Returns(new GetPagedMachinesResult.Success(pageResponse));
+
+        // Act
+        var result = await controller.GetPagedMachines(
+            pagedHandler,
+            pageSize: 10,
+            lastMachineId: null,
+            page: 1,
+            search: "Medieval",
+            CancellationToken.None);
+
+        // Assert
+        var okResult = result.Result.Should().BeOfType<OkObjectResult>().Which;
+        var returnedPage = okResult.Value.Should().BeOfType<PagedResponse<MachineRowDto>>().Which;
+        returnedPage.Items.Should().HaveCount(1);
+        returnedPage.TotalCount.Should().Be(1);
+        returnedPage.Stats!.Total.Should().Be(1);
+    }
+
+    [Fact]
+    public async Task GetPagedMachines_WhenHandlerReturnsNotFound_ShouldReturnNotFound()
+    {
+        // Arrange
+        var controller = new AdminMachinesController(
+            Substitute.For<IProvisionMachineHandler>(),
+            Substitute.For<IReissueEnrollmentTokenHandler>());
+
+        var pagedHandler = Substitute.For<IGetPagedMachinesHandler>();
+        pagedHandler.HandleAsync(
+                Arg.Any<GetPagedMachinesQuery>(),
+                Arg.Any<CancellationToken>())
+            .Returns(new GetPagedMachinesResult.NotFound());
+
+        // Act
+        var result = await controller.GetPagedMachines(
+            pagedHandler,
+            pageSize: 10,
+            lastMachineId: null,
+            page: null,
+            search: null,
+            CancellationToken.None);
+
+        // Assert
+        result.Result.Should().BeOfType<NotFoundObjectResult>();
+    }
+
+    [Fact]
+    public async Task GetPagedMachines_ShouldClampPageSizeBetween1And50()
+    {
+        // Arrange
+        var controller = new AdminMachinesController(
+            Substitute.For<IProvisionMachineHandler>(),
+            Substitute.For<IReissueEnrollmentTokenHandler>());
+
+        var pagedHandler = Substitute.For<IGetPagedMachinesHandler>();
+        pagedHandler.HandleAsync(
+                Arg.Any<GetPagedMachinesQuery>(),
+                Arg.Any<CancellationToken>())
+            .Returns(new GetPagedMachinesResult.NotFound());
+
+        // Act - Pass an excessive pageSize of 500
+        await controller.GetPagedMachines(
+            pagedHandler,
+            pageSize: 500,
+            lastMachineId: null,
+            page: null,
+            search: null,
+            CancellationToken.None);
+
+        // Assert - Verify handler received clamped pageSize = 50
+        await pagedHandler.Received(1).HandleAsync(
+            Arg.Is<GetPagedMachinesQuery>(q => q.PageSize == 50),
+            Arg.Any<CancellationToken>());
     }
 }

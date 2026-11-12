@@ -211,7 +211,8 @@ public sealed class GameSessionGrpcService(
             var slotInfo = new PlayerSlotInfo
             {
                 SlotNumber = slot.SlotNumber,
-                IsOccupied = slot.IsOccupied
+                IsOccupied = slot.IsOccupied,
+                Status = (SlotStatus)(int)slot.Status
             };
 
             if (slot.UserId.HasValue)
@@ -244,34 +245,15 @@ public sealed class GameSessionGrpcService(
         await responseStream.WriteAsync(MapToLobbyResponse(initialSuccess.Lobby));
 
 
-        if (initialSuccess
-                .Lobby.SessionState
-            is "Started"
-            or "InGame"
-            or "Ended"
-            or "Closed"
-            or "Cancelled"
-            or "Abandoned"
-            or "Aborted")
-            return;
+        if (IsTerminalState(initialSuccess.Lobby.SessionState)) return;
 
         await foreach (var _ in lobbyNotifier.SubscribeAsync(sessionId, context.CancellationToken))
         {
             var result = await getLobbyHandler.HandleAsync(new GetLobbyQuery(sessionId), context.CancellationToken);
-            if (result is GetLobbyResult.Success success)
-            {
-                await responseStream.WriteAsync(MapToLobbyResponse(success.Lobby));
-                if (success.Lobby.SessionState is
-                    "Started"
-                    or "InGame"
-                    or "Ended"
-                    or "Closed"
-                    or "Cancelled"
-                    or "Abandoned"
-                    or "Aborted"
-                   )
-                    break;
-            }
+            
+            if (result is not GetLobbyResult.Success success) continue;
+            await responseStream.WriteAsync(MapToLobbyResponse(success.Lobby));
+            if (IsTerminalState(success.Lobby.SessionState)) break;
         }
     }
 
@@ -292,7 +274,7 @@ public sealed class GameSessionGrpcService(
         {
             lobbyNotifier.NotifyLobbyUpdated(sessionId);
         }
-        
+
         return result switch
         {
             RecordBallScoreResult.Success s =>
@@ -360,32 +342,64 @@ public sealed class GameSessionGrpcService(
         IServerStreamWriter<SessionLobbyResponse> responseStream,
         ServerCallContext context)
     {
-        // 1. Initial snapshot: send all currently active sessions
+        // subscription
+        var stream = lobbyNotifier.SubscribeAllAsync(
+            context.CancellationToken);
+        await using var enumerator = stream
+            .GetAsyncEnumerator(
+            context.CancellationToken);
+
+        // local memory of stream to dedup same sending
+        var lastFingerprints = new Dictionary<string, string>();
+        
+        // Initial Snapshot
         var activeSessionIds = await gameSessionReadRepository
             .GetActiveSessionIdsAsync(context.CancellationToken);
-        
+
         foreach (var sessionId in activeSessionIds)
         {
-            var initialResult = await getLobbyHandler.HandleAsync(new GetLobbyQuery(sessionId), context.CancellationToken);
+            var initialResult =
+                await getLobbyHandler.HandleAsync(new GetLobbyQuery(sessionId),
+                    context.CancellationToken);
+            
             if (initialResult is GetLobbyResult.Success success)
             {
-                await responseStream.WriteAsync(MapToLobbyResponse(success.Lobby));
+                await SendIfNotDuplicateAsync(success.Lobby, lastFingerprints, responseStream);
             }
         }
-        
-        // 2. Real-time stream: broadcast every update emitted by any pinball machine
-        await foreach (var sessionId in lobbyNotifier.SubscribeAllAsync(context.CancellationToken))
+
+        //  Real-time stream: broadcast every update emitted by any pinball machine
+
+        while (await enumerator.MoveNextAsync())
         {
-            var result = await getLobbyHandler.HandleAsync(new GetLobbyQuery(sessionId), context.CancellationToken);
+            var sessionId = enumerator.Current;
+            var result = await getLobbyHandler.HandleAsync(
+                new GetLobbyQuery(sessionId),
+                context.CancellationToken);
             if (result is GetLobbyResult.Success success)
             {
-                await responseStream.WriteAsync(MapToLobbyResponse(success.Lobby));
+                await SendIfNotDuplicateAsync(success.Lobby, lastFingerprints, responseStream);
             }
+
         }
-        
+
     }
 
+    private static async Task SendIfNotDuplicateAsync(
+        SessionLobbyDto lobby,
+        Dictionary<string, string> lastFingerprints,
+        IServerStreamWriter<SessionLobbyResponse> responseStream)
+    {
+        var response = MapToLobbyResponse(lobby);
+        var fingerprint = $"{response.SessionState}_{string.Join(",", response.Slots.Select(s => $"{s.SlotNumber}:{s.Status}:{s.UserId}"))}";
+        if (!lastFingerprints.TryGetValue(response.SessionId, out var previous) || previous != fingerprint)
+        {
+            lastFingerprints[response.SessionId] = fingerprint;
+            await responseStream.WriteAsync(response);
+        }
+    }
 
-
-
+    private static bool IsTerminalState(string state) =>
+        state is "Ended" or "Closed" or "Cancelled" or "Abandoned" or "Aborted";
+    
 }

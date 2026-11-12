@@ -736,4 +736,77 @@ public class GameSessionTests
     
     #endregion
     
+
+    // -------------------- Slots Lifecycle Tests --------------------
+    #region Slots Lifecycle
+
+    [Fact]
+    public void Constructor_ShouldInitializeFourOpenSlots()
+    {
+        // Act
+        var session = CreateSession();
+
+        // Assert
+        session.Slots.Should().HaveCount(4);
+        session.Slots.Select(s => s.SlotNumber).Should().BeEquivalentTo(new[] { 1, 2, 3, 4 });
+        session.Slots.Should().OnlyContain(s => s.Status == GameSlotStatus.Open && s.UserId == null && s.GuestInitials == null);
+    }
+
+    [Fact]
+    public void AddPlayer_ShouldMarkSlotAsOccupied()
+    {
+        // Arrange
+        var session = CreateSession();
+        var userId = Guid.NewGuid();
+
+        // Act
+        session.AddPlayer(slotNumber: 2, userId: userId);
+
+        // Assert
+        var slot2 = session.Slots.First(s => s.SlotNumber == 2);
+        slot2.Status.Should().Be(GameSlotStatus.Occupied);
+        slot2.UserId.Should().Be(userId);
+
+        session.Slots.Where(s => s.SlotNumber != 2)
+            .Should().OnlyContain(s => s.Status == GameSlotStatus.Open);
+    }
+
+    [Fact]
+    public void RemovePlayer_ShouldResetSlotToOpen()
+    {
+        // Arrange
+        var session = CreateSession();
+        session.AddPlayer(slotNumber: 1, guestInitials: "TOM", requiresRegisteredUser: false);
+        session.Slots.First(s => s.SlotNumber == 1).Status.Should().Be(GameSlotStatus.Occupied);
+
+        // Act
+        session.RemovePlayer(slotNumber: 1);
+
+        // Assert
+        var slot1 = session.Slots.First(s => s.SlotNumber == 1);
+        slot1.Status.Should().Be(GameSlotStatus.Open);
+        slot1.GuestInitials.Should().BeNull();
+        slot1.UserId.Should().BeNull();
+    }
+
+    [Fact]
+    public void Launch_ShouldLockAllRemainingOpenSlots()
+    {
+        // Arrange
+        var session = CreateSession();
+        session.AddPlayer(slotNumber: 1, guestInitials: "AAA", requiresRegisteredUser: false);
+        session.AddPlayer(slotNumber: 3, guestInitials: "BBB", requiresRegisteredUser: false);
+
+        // Act
+        session.Launch(DateTime.UtcNow);
+
+        // Assert
+        session.Slots.First(s => s.SlotNumber == 1).Status.Should().Be(GameSlotStatus.Occupied);
+        session.Slots.First(s => s.SlotNumber == 3).Status.Should().Be(GameSlotStatus.Occupied);
+        session.Slots.First(s => s.SlotNumber == 2).Status.Should().Be(GameSlotStatus.Locked);
+        session.Slots.First(s => s.SlotNumber == 4).Status.Should().Be(GameSlotStatus.Locked);
+    }
+
+    #endregion
+
 }

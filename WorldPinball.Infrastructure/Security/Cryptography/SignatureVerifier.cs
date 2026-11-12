@@ -1,5 +1,6 @@
 
 using System.Security.Cryptography;
+using WorldPinball.Application.Security.Cryptography;
 
 namespace WorldPinball.Infrastructure.Security.Cryptography
 {
