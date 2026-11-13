@@ -9,19 +9,33 @@ namespace WorldPinball.Infrastructure.Persistence.Repositories;
 public sealed class MachineDashboardReadRepository(IConfiguration config) : IMachineDashboardReadRepository
 {
     private const string Sql = """
+        WITH session_stats AS (
+            SELECT 
+                COUNT(*) AS total_games,
+                MAX(started_at_utc) AS last_played_at
+            FROM public.game_sessions
+            WHERE machine_id = @MachineId
+        ),
+        score_stats AS (
+            SELECT 
+                MAX(score) AS high_score,
+                AVG(score) AS average_score,
+                COUNT(DISTINCT user_id) AS total_unique_players
+            FROM public.score_entries
+            WHERE machine_id = @MachineId
+        )
         SELECT
             m.machine_id AS MachineId,
             m.world_pinball_serial_number AS SerialNumber,
-            COALESCE(COUNT(DISTINCT gs.session_id), 0)::int AS TotalGamesPlayed,
-            COALESCE(MAX(se.score), 0)::bigint AS HighScore,
-            COALESCE(AVG(se.score), 0)::bigint AS AverageScore,
-            COALESCE(COUNT(DISTINCT se.user_id), 0)::int AS TotalUniquePlayers,
-            MAX(gs.started_at_utc) AS LastPlayedAtUtc
+            COALESCE(ss.total_games, 0)::int AS TotalGamesPlayed,
+            COALESCE(sc.high_score, 0)::bigint AS HighScore,
+            COALESCE(sc.average_score, 0)::bigint AS AverageScore,
+            COALESCE(sc.total_unique_players, 0)::int AS TotalUniquePlayers,
+            ss.last_played_at AS LastPlayedAtUtc
         FROM public.machines m
-        LEFT JOIN public.game_sessions gs ON gs.machine_id = m.machine_id
-        LEFT JOIN public.score_entries se ON se.machine_id = m.machine_id
-        WHERE m.machine_id = @MachineId
-        GROUP BY m.machine_id, m.world_pinball_serial_number
+        LEFT JOIN session_stats ss ON true
+        LEFT JOIN score_stats sc ON true
+        WHERE m.machine_id = @MachineId;
         """;
 
     public async Task<MachineDashboardDto?> GetMachineStatsAsync(Guid machineId, CancellationToken ct = default)
